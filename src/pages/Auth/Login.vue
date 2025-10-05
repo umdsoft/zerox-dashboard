@@ -34,11 +34,11 @@ const handleSubmit = async () => {
           ZX
         </div>
         <h1 class="text-2xl font-semibold text-slate-800">Welcome back</h1>
-        <p class="text-sm text-slate-500">Sign in with your phone number and password to access the dashboard.</p>
+        <p class="text-sm text-slate-500">Kirish uchun telefon raqamingiz va parolingizni tering.</p>
       </div>
       <form class="space-y-6" @submit.prevent="handleSubmit">
         <div class="space-y-2">
-          <label class="text-sm font-medium text-slate-700" for="phone">Phone number</label>
+          <label class="text-sm font-medium text-slate-700" for="phone">Telefon raqamingiz</label>
           <input
             id="phone"
             v-model="form.phone"
@@ -49,7 +49,7 @@ const handleSubmit = async () => {
           />
         </div>
         <div class="space-y-2">
-          <label class="text-sm font-medium text-slate-700" for="password">Password</label>
+          <label class="text-sm font-medium text-slate-700" for="password">Parol</label>
           <input
             id="password"
             v-model="form.password"
@@ -66,9 +66,9 @@ const handleSubmit = async () => {
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
             </svg>
-            Signing in...
+            Amalga oshirilmoqda...
           </span>
-          <span v-else>Sign In</span>
+          <span v-else>Tizimga kirish</span>
         </AppButton>
       </form>
     </div>

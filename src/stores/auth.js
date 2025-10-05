@@ -25,9 +25,10 @@ export const useAuthStore = defineStore('auth', {
     async login(payload) {
       this.loading = true;
       try {
-        const { data } = await api.post('/auth/login', payload);
-        if (data?.access_token) {
-          this.setToken(data.access_token);
+        const { data } = await api.post('/user/login', payload);
+        console.log(data)
+        if (data?.token) {
+          this.setToken(data.token);
           await this.fetchMe();
         } else {
           throw new Error('Missing access token');
@@ -45,7 +46,7 @@ export const useAuthStore = defineStore('auth', {
         throw new Error('No authentication token');
       }
       try {
-        const { data } = await api.get('/me');
+        const { data } = await api.get('user/me');
         this.user = data;
         if (!this.isAdmin) {
           this.logout();
