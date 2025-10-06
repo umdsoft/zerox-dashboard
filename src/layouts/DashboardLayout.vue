@@ -11,9 +11,9 @@ const authStore = useAuthStore();
 
 const navigation = [
   { name: 'Dashboard', to: { name: 'dashboard' }, icon: 'home' },
-  { name: 'Users', to: { name: 'users' }, icon: 'users' },
-  { name: 'Payments', to: { name: 'payments' }, icon: 'credit-card' },
-  { name: 'Contracts', to: { name: 'contracts' }, icon: 'document-text' }
+  { name: 'Foydalanuvchilar', to: { name: 'users' }, icon: 'users' },
+  { name: 'To‘lovlar', to: { name: 'payments' }, icon: 'credit-card' },
+  { name: 'Qarz shartnomalari', to: { name: 'contracts' }, icon: 'document-text' }
 ];
 
 const activePath = computed(() => route.name);
@@ -130,7 +130,7 @@ const toggleSidebar = () => {
           <h1 class="text-lg font-semibold text-slate-800 capitalize">{{ route.name }}</h1>
         </div>
         <div class="flex items-center gap-3">
-          <AppButton variant="secondary" size="sm" @click="handleLogout">Logout</AppButton>
+          <AppButton variant="secondary" size="sm" @click="handleLogout">Chiqish</AppButton>
         </div>
       </header>
       <section class="flex-1 overflow-y-auto p-6">
