@@ -1,30 +1,46 @@
 <script setup>
-import { reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { useAuthStore } from '../../stores/auth';
-import AppButton from '../../components/ui/AppButton.vue';
+import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../../stores/auth'
+import AppButton from '../../components/ui/AppButton.vue'
 
-const router = useRouter();
-const authStore = useAuthStore();
+const router = useRouter()
+const authStore = useAuthStore()
 
 const form = reactive({
   phone: '',
   password: ''
-});
+})
 
-const errorMessage = ref('');
+const errorMessage = ref('')
+
+// Telefon raqamini tozalash (bo'shliq, (), -, . va h.k. olib tashlanadi)
+function normalizePhone(v) {
+  let s = String(v ?? '').trim()
+  // barcha bo'shliqlar (jumladan unicode no-break space va zero-width) ni olib tashlash
+  s = s.replace(/[\s\u00A0\u1680\u2000-\u200D\u202F\u205F\u2060\u3000]+/g, '')
+  // bezak belgilarini olib tashlash
+  s = s.replace(/[().-]/g, '')
+  // bir nechta + belgilarini bitta + ga keltirish
+  s = s.replace(/\++/g, '+')
+  // + belgisi faqat boshida bo'lsin
+  if (s.indexOf('+') > 0) s = s.replace(/\+/g, '')
+  return s
+}
 
 const handleSubmit = async () => {
-  errorMessage.value = '';
+  errorMessage.value = ''
   try {
-    await authStore.login({ phone: form.phone, password: form.password });
-    await router.replace({ name: 'dashboard' });
+    const phoneClean = normalizePhone(form.phone)
+    await authStore.login({ phone: phoneClean, password: form.password })
+    await router.replace({ name: 'dashboard' })
   } catch (error) {
     errorMessage.value =
-      error?.response?.data?.message || error?.message || 'Unable to login. Please check your credentials.';
+      error?.response?.data?.message || error?.message || 'Unable to login. Please check your credentials.'
   }
-};
+}
 </script>
+
 
 <template>
   <div class="flex min-h-screen items-center justify-center bg-slate-100 px-4">

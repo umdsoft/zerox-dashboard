@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import api from '../../lib/axios'
 // default avatar (fix for vite import)
-import defaultAvatar from '@/assets/img/no-avatar.png'
+import defaultAvatar from '../../../assets/img/no-avatar.png'
 
 const route = useRoute()
 const loading = ref(false)
@@ -121,20 +121,20 @@ watch(() => route.params.id, load)
           <div class="mt-5 space-y-3">
             <RouterLink
               :to="`/users/${user.uid}/contracts`"
-              class="block w-full rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm text-center py-2"
+              class="block w-full rounded-md bg-blue-500 hover:bg-blue-600 hover:text-white text-white text-sm text-center py-2"
             >
               Qarz shartnomalari
             </RouterLink>
 
             <RouterLink
               :to="`/users/${user.id}/logins`"
-              class="block w-full rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm text-center py-2"
+              class="block w-full rounded-md bg-blue-500 hover:bg-blue-600 hover:text-white text-white text-sm text-center py-2"
             >
               Kirishlar arxivi
             </RouterLink>
 
             <a :href="ofertaPdf" download class="block w-full">
-              <button class="w-full rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm py-2">
+              <button class="w-full rounded-md bg-blue-500 hover:bg-blue-600 hover:text-white text-white text-sm py-2">
                 Tasdiqlangan ommaviy ofertani yuklab olish
               </button>
             </a>

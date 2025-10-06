@@ -8,6 +8,12 @@ import PaymentsPage from '../pages/Payments/Index.vue';
 import ContractsPage from '../pages/Contracts/Index.vue';
 import ContractDetailPage from '../pages/Contracts/Detail.vue';
 import UserDetailPage from '../pages/Users/Detail.vue';
+import UserContracts from '../pages/Users/Contracts.vue'
+import CreditorHistory from '../pages/Users/contracts/creditor.vue'
+import DebitoHistory from '../pages/Users/contracts/debitor.vue';
+import CreditorHistoryR from '../pages/Users/contracts/creditor-history.vue'
+import DebitorHistoryR from '../pages/Users/contracts/debitor-history.vue'
+import UserLogins from '../pages/Users/LoginArchive.vue'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -37,7 +43,43 @@ const router = createRouter({
          {
           path: 'users/:id',
           name: 'users-detail',
-          component: UsersPage,
+          component: UserDetailPage,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'users/:id/contracts',
+          name: 'users-detail-contracts',
+          component: UserContracts,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'users/:id/creditor/history',
+          name: 'users-creditor-history',
+          component: CreditorHistoryR,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'users/:id/debitor/history',
+          name: 'users-debitor-history',
+          component: DebitorHistoryR,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'users/:id/reports/creditor',
+          name: 'users-creditor-report',
+          component: CreditorHistory,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'users/:id/reports/debitor',
+          name: 'users-debitor-report',
+          component: DebitoHistory,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'users/:id/logins',
+          name: 'users-logins',
+          component: UserLogins,
           meta: { requiresAuth: true }
         },
         {
