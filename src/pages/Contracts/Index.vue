@@ -54,14 +54,17 @@ function statusClass(val) {
     return 'bg-amber-100 text-amber-700 border border-amber-200'
   if (v === '3' || v === 'rejected' || v === 'cancelled' || v === 'rad qilingan')
     return 'bg-rose-100 text-rose-700 border border-rose-200'
+    if (v === '4' || v === 'rejected' || v === 'cancelled' || v === 'rad qilingan')
+    return 'bg-rose-100 text-rose-700 border border-rose-200'
   return 'bg-gray-100 text-gray-700 border border-gray-200'
 }
 function statusLabel(val) {
   const v = String(val ?? '').toLowerCase()
+  if (v === '0' || v === 'done' || v === 'completed' || v === 'tugallangan') return 'Tasdiqlanmagan'
   if (v === '1' || v === 'done' || v === 'completed' || v === 'tugallangan') return 'Tugallangan'
   if (v === '2' || v === 'pending' || v === 'progress' || v === 'jarayonda') return 'Jarayonda'
   if (v === '3' || v === 'rejected' || v === 'cancelled' || v === 'rad qilingan') return 'Rad qilingan'
-  if (v === '4' || v === 'rejected' || v === 'cancelled' || v === 'rad qilingan') return 'Tasdiqlanmagan'
+  if (v === '4' || v === 'rejected' || v === 'cancelled' || v === 'rad qilingan') return 'Rad qilingan'
   return val ?? '—'
 }
 
