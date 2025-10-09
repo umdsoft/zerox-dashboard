@@ -13,7 +13,8 @@ const navigation = [
   { name: 'Dashboard', to: { name: 'dashboard' }, icon: 'home' },
   { name: 'Foydalanuvchilar', to: { name: 'users' }, icon: 'users' },
   { name: 'To‘lovlar', to: { name: 'payments' }, icon: 'credit-card' },
-  { name: 'Qarz shartnomalari', to: { name: 'contracts' }, icon: 'document-text' }
+  { name: 'Qarz shartnomalari', to: { name: 'contracts' }, icon: 'document-text' },
+  { name: 'Mobil versiya', to: { name: 'mobile-version' }, icon: 'fa-solid fa-mobile' }
 ];
 
 const activePath = computed(() => route.name);

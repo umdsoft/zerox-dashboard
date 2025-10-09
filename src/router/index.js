@@ -88,6 +88,12 @@ const router = createRouter({
           component: PaymentsPage,
           meta: { requiresAuth: true }
         },
+         {
+          path: 'mobile-version',
+          name: 'mobile-version',
+          component: () => import('../pages/Mobile/index.vue'),
+          meta: { requiresAuth: true }
+        },
         {
           path: 'contracts',
           name: 'contracts',

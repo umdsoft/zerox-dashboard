@@ -15,10 +15,10 @@ const total = ref(0)
 // Ustunlar — sen bergan tartibda
 const columns = [
   { label: 'QARZ SHARTNOMASI RAQAMI', key: 'contract_no' },  // clickable → /contracts/:id
-  { label: 'QARZ BERUVCHI', key: 'creditor_full_name' },
-  { label: 'QARZ BERUVCHINING ID RAQAMI', key: 'creditor_id' },
-  { label: 'QARZ OLUVCI', key: 'debitor_full_name' },      // chapda qoladi
-  { label: 'QARZ OLUVCINING ID RAQAMI', key: 'debitor_id' },
+  { label: 'QARZ BERUVCHI', key: 'debitor_full_name' },
+  { label: 'QARZ BERUVCHINING ID RAQAMI', key: 'debitor_id' },
+  { label: 'QARZ OLUVCHI', key: 'creditor_full_name' },      // chapda qoladi
+  { label: 'QARZ OLUVCINING ID RAQAMI', key: 'creditor_id' },
   { label: 'QARZ MIQDORI', key: 'amount_fmt' },             // 1 000 000 + currency
   { label: 'QARZNI QAYTARISH SANASI', key: 'return_date_fmt' },        // dd.MM.yyyy
   { label: 'HOLAT', key: 'status' },                 // badge
