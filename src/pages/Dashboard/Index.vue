@@ -111,17 +111,17 @@ onMounted(drawChart)
     </div>
 
     <!-- Top full-width chart -->
-    <!-- <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div class="flex items-center justify-between mb-4">
         <div>
-          <h3 class="text-base font-semibold text-slate-800">Bugungi tushum trendi</h3>
+          <h3 class="text-base font-semibold text-slate-800">Bugungi saytga tashrif buyurganlar</h3>
           <p class="text-sm text-slate-500">Soatlik kesimda tushgan mablag‘lar dinamikasi (mock).</p>
         </div>
       </div>
       <div class="h-80">
         <canvas ref="chartCanvas"></canvas>
       </div>
-    </div> -->
+    </div> 
 
     <!-- 2 big cards row -->
     <div class="grid gap-6 xl:grid-cols-2">
