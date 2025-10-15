@@ -52,7 +52,7 @@ export const useAuthStore = defineStore("auth", {
         // Token ba’zida data.token yoki data.data.token bo‘lishi mumkin
         const token =
           (data && data.token) || (data && data.data && data.data.token);
-        if (!token) throw new Error("Missing access token");
+        if (!token) throw new Error("Kirish tokeni topilmadi");
 
         this.setToken(token);
         await this.fetchMe();
@@ -85,7 +85,7 @@ export const useAuthStore = defineStore("auth", {
 
         if (!hasAdminFlag) {
           this.logout();
-          throw new Error("Administrator access required");
+          throw new Error("Tizimga kirish uchun sizda ruxsat yo'q!");
         }
         return me;
       } catch (error) {
