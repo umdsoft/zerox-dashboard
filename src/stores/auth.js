@@ -22,17 +22,14 @@ export const useAuthStore = defineStore("auth", {
   getters: {
     isAuthenticated: (state) => Boolean(state.token),
 
-    // Backenddan kelishi mumkin bo‘lgan ko‘rinishlarning barchasini tekshiramiz
     isAdmin: (state) => {
       const u = state.user || {};
       const role = u.role || {};
-      return Boolean(
+      return (
         role.is_admin === 1 ||
-          role.is_admin === true ||
-          u.is_admin === 1 ||
-          u.is_admin === true ||
-          u.type === 2 || // sizning screenshot’da type: 2 bor
-          u.role === "admin"
+        role.is_admin === true ||
+        u.is_admin === 1 ||
+        u.is_admin === true
       );
     },
   },
@@ -78,13 +75,15 @@ export const useAuthStore = defineStore("auth", {
         const me = res.data && res.data.data ? res.data.data : res.data;
         this.user = me;
 
-        // Agar admin bo‘lish shart bo‘lsa — shu guard qolsin
-        if (
-          this.user.is_admin !== 1 &&
-          this.user.is_admin !== true &&
-          this.user.role !== "admin" &&
-          this.user.type !== 2
-        ) {
+        // Only administrators are allowed into the dashboard
+        const role = (this.user && this.user.role) || {};
+        const hasAdminFlag =
+          role.is_admin === 1 ||
+          role.is_admin === true ||
+          this.user.is_admin === 1 ||
+          this.user.is_admin === true;
+
+        if (!hasAdminFlag) {
           this.logout();
           throw new Error("Administrator access required");
         }
