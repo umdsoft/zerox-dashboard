@@ -7,9 +7,20 @@ import {
   Chart,
   LineController, LineElement, PointElement,
   CategoryScale, LinearScale, Tooltip, Filler,
-  ArcElement, Legend
+  PieController, ArcElement, Legend
 } from 'chart.js'
-Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler, ArcElement, Legend)
+Chart.register(
+  LineController,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip,
+  Filler,
+  PieController,
+  ArcElement,
+  Legend
+)
 
 // ---------- STATIK TOP STATS ----------
 const topStats = ref([
@@ -173,10 +184,10 @@ async function loadStatisticPies() {
   try {
     const { data } = await api.get('/dashboard/statistic')
     const stats = data ?? {}
-    console.log('Dashboard statistics data:', stats)
+
     const regions = Array.isArray(stats.byRegion) ? stats.byRegion : []
     regionChartData.value = {
-      labels: regions.map((item) => item.region ?? item.name ?? 'Nomaʼlum'),
+      labels: regions.map((item) => item.region ?? item.region_name ?? item.name ?? 'Nomaʼlum'),
       values: regions.map((item) => parseNumber(item.cnt ?? item.count ?? item.total))
     }
 
@@ -191,9 +202,10 @@ async function loadStatisticPies() {
     const genderValues = []
     genders.forEach((item) => {
       let label = 'Nomaʼlum'
-      if (item.gender === 1 || item.gender === '1') {
+      const genderRaw = item.gender ?? item.label
+      if (genderRaw === 1 || genderRaw === '1' || genderRaw === 'male' || genderRaw === 'erkak') {
         label = 'Erkaklar'
-      } else if (item.gender === 2 || item.gender === '2') {
+      } else if (genderRaw === 2 || genderRaw === '2' || genderRaw === 'female' || genderRaw === 'ayol') {
         label = 'Ayollar'
       }
       genderLabels.push(label)
@@ -282,7 +294,118 @@ onBeforeUnmount(() => {
       <div class="h-80">
         <canvas ref="chartCanvas"></canvas>
       </div>
-    </div> -->
+    </div>
+
+    <!-- Distribution pie charts -->
+    <div class="grid gap-6 xl:grid-cols-3">
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-slate-800">Hududlar kesimida</h3>
+            <p class="text-sm text-slate-500">Jami: {{ formatNumber(regionTotal) }}</p>
+          </div>
+          <RouterLink
+            to="/admin/detail-table/region"
+            class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-slate-700"
+          >
+            Batafsil
+          </RouterLink>
+        </div>
+        <div class="mt-6 flex-1">
+          <div v-if="pieLoading" class="flex h-64 items-center justify-center">
+            <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+          </div>
+          <div v-else-if="pieError" class="flex h-64 items-center justify-center text-center text-sm text-rose-500">
+            {{ pieError }}
+          </div>
+          <div v-else-if="!regionChartData.values.length" class="flex h-64 items-center justify-center text-sm text-slate-400">
+            Maʼlumot mavjud emas
+          </div>
+          <div v-else class="relative mx-auto aspect-square h-64 max-w-xs">
+            <canvas ref="regionChartCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-slate-800">Yosh kesimida</h3>
+            <p class="text-sm text-slate-500">Jami: {{ formatNumber(ageTotal) }}</p>
+          </div>
+          <RouterLink
+            to="/admin/detail-table/age"
+            class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-slate-700"
+          >
+            Batafsil
+          </RouterLink>
+        </div>
+        <div class="mt-6 flex-1">
+          <div v-if="pieLoading" class="flex h-64 items-center justify-center">
+            <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+          </div>
+          <div v-else-if="pieError" class="flex h-64 items-center justify-center text-center text-sm text-rose-500">
+            {{ pieError }}
+          </div>
+          <div v-else-if="!ageChartData.values.length" class="flex h-64 items-center justify-center text-sm text-slate-400">
+            Maʼlumot mavjud emas
+          </div>
+          <div v-else class="relative mx-auto aspect-square h-64 max-w-xs">
+            <canvas ref="ageChartCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-slate-800">Jins kesimida</h3>
+            <p class="text-sm text-slate-500">Jami: {{ formatNumber(genderTotal) }}</p>
+          </div>
+          <RouterLink
+            to="/admin/detail-table/gender"
+            class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-slate-700"
+          >
+            Batafsil
+          </RouterLink>
+        </div>
+        <div class="mt-6 flex-1">
+          <div v-if="pieLoading" class="flex h-64 items-center justify-center">
+            <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+          </div>
+          <div v-else-if="pieError" class="flex h-64 items-center justify-center text-center text-sm text-rose-500">
+            {{ pieError }}
+          </div>
+          <div v-else-if="!genderChartData.values.length" class="flex h-64 items-center justify-center text-sm text-slate-400">
+            Maʼlumot mavjud emas
+          </div>
+          <div v-else class="relative mx-auto aspect-square h-64 max-w-xs">
+            <canvas ref="genderChartCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Distribution pie charts -->
     <div class="grid gap-6 xl:grid-cols-3">
