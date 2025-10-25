@@ -283,20 +283,6 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Top full-width chart -->
-    <!-- <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <h3 class="text-base font-semibold text-slate-800">Bugungi saytga tashrif buyurganlar</h3>
-          <p class="text-sm text-slate-500">Soatlik kesimda tushgan mablag‘lar dinamikasi (mock).</p>
-        </div>
-      </div>
-      <div class="h-80">
-        <canvas ref="chartCanvas"></canvas>
-      </div>
-    </div>
-    <!-- Distribution pie charts -->
-
     <div class="grid gap-6 xl:grid-cols-3">
       <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
         <div class="flex items-start justify-between gap-4">
