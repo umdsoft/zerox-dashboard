@@ -1,13 +1,15 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import api from '../../lib/axios'
 
 // ====== CHART.JS (faqat front mock) ======
 import {
   Chart,
   LineController, LineElement, PointElement,
-  CategoryScale, LinearScale, Tooltip, Filler
+  CategoryScale, LinearScale, Tooltip, Filler,
+  ArcElement, Legend
 } from 'chart.js'
-Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler)
+Chart.register(LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Filler, ArcElement, Legend)
 
 // ---------- STATIK TOP STATS ----------
 const topStats = ref([
@@ -20,6 +22,28 @@ const topStats = ref([
 // ---------- STATIK CHART MA’LUMOTI ----------
 const chartCanvas = ref(null)
 let chartInstance = null
+
+const regionChartCanvas = ref(null)
+const ageChartCanvas = ref(null)
+const genderChartCanvas = ref(null)
+
+let regionChartInstance = null
+let ageChartInstance = null
+let genderChartInstance = null
+
+const regionChartData = ref({ labels: [], values: [] })
+const ageChartData = ref({ labels: [], values: [] })
+const genderChartData = ref({ labels: [], values: [] })
+
+const pieLoading = ref(false)
+const pieError = ref('')
+
+const numberFormatter = new Intl.NumberFormat('ru-RU')
+const formatNumber = (value) => numberFormatter.format(value ?? 0)
+
+const regionTotal = computed(() => regionChartData.value.values.reduce((sum, v) => sum + v, 0))
+const ageTotal = computed(() => ageChartData.value.values.reduce((sum, v) => sum + v, 0))
+const genderTotal = computed(() => genderChartData.value.values.reduce((sum, v) => sum + v, 0))
 
 const chartLabels = [
   '08:00','09:00','10:00','11:00','12:00','13:00',
@@ -59,6 +83,136 @@ function drawChart() {
   })
 }
 
+const piePalette = ['#0ea5e9', '#22d3ee', '#6366f1', '#a855f7', '#f472b6', '#f97316', '#facc15', '#34d399', '#14b8a6', '#fb7185']
+
+function getPieColors(count) {
+  if (count <= piePalette.length) {
+    return piePalette.slice(0, count)
+  }
+  const colors = []
+  for (let i = 0; i < count; i += 1) {
+    colors.push(piePalette[i % piePalette.length])
+  }
+  return colors
+}
+
+function drawPieChart(canvasRef, dataset, currentInstance) {
+  if (currentInstance) {
+    currentInstance.destroy()
+  }
+  const canvas = canvasRef.value
+  if (!canvas || !dataset.values.length) {
+    return null
+  }
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    return null
+  }
+  const colors = getPieColors(dataset.values.length)
+  return new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: dataset.labels,
+      datasets: [
+        {
+          data: dataset.values,
+          backgroundColor: colors,
+          borderColor: '#ffffff',
+          borderWidth: 2,
+          hoverOffset: 8
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600 },
+      layout: { padding: 10 },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            usePointStyle: true,
+            pointStyle: 'circle',
+            boxWidth: 10,
+            padding: 16
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const datasetValues = context.chart.data.datasets[0]?.data ?? []
+              const total = datasetValues.reduce((sum, value) => sum + (Number(value) || 0), 0)
+              const currentValue = Number(context.parsed) || 0
+              const percentage = total ? ((currentValue / total) * 100).toFixed(1) : '0.0'
+              const formattedValue = formatNumber(currentValue)
+              return `${context.label}: ${formattedValue} (${percentage}%)`
+            }
+          }
+        }
+      }
+    }
+  })
+}
+
+function parseNumber(value) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
+async function loadStatisticPies() {
+  pieLoading.value = true
+  pieError.value = ''
+
+  const resetData = () => {
+    regionChartData.value = { labels: [], values: [] }
+    ageChartData.value = { labels: [], values: [] }
+    genderChartData.value = { labels: [], values: [] }
+  }
+
+  try {
+    const { data } = await api.get('/dashboard/statistic')
+    const stats = data ?? {}
+
+    const regions = Array.isArray(stats.byRegion) ? stats.byRegion : []
+    regionChartData.value = {
+      labels: regions.map((item) => item.region ?? item.name ?? 'Nomaʼlum'),
+      values: regions.map((item) => parseNumber(item.cnt ?? item.count ?? item.total))
+    }
+
+    const ages = Array.isArray(stats.byAge) ? stats.byAge : []
+    ageChartData.value = {
+      labels: ages.map((item) => item.age_range ?? item.label ?? 'Nomaʼlum'),
+      values: ages.map((item) => parseNumber(item.count ?? item.cnt ?? item.total))
+    }
+
+    const genders = Array.isArray(stats.byGender) ? stats.byGender : []
+    const genderLabels = []
+    const genderValues = []
+    genders.forEach((item) => {
+      let label = 'Nomaʼlum'
+      if (item.gender === 1 || item.gender === '1') {
+        label = 'Erkaklar'
+      } else if (item.gender === 2 || item.gender === '2') {
+        label = 'Ayollar'
+      }
+      genderLabels.push(label)
+      genderValues.push(parseNumber(item.cnt ?? item.count ?? item.total))
+    })
+    genderChartData.value = { labels: genderLabels, values: genderValues }
+  } catch (error) {
+    console.error('Failed to load dashboard statistics', error)
+    pieError.value = 'Maʼlumotlarni yuklashda xatolik yuz berdi.'
+    resetData()
+  } finally {
+    await nextTick()
+    regionChartInstance = drawPieChart(regionChartCanvas, regionChartData.value, regionChartInstance)
+    ageChartInstance = drawPieChart(ageChartCanvas, ageChartData.value, ageChartInstance)
+    genderChartInstance = drawPieChart(genderChartCanvas, genderChartData.value, genderChartInstance)
+    pieLoading.value = false
+  }
+}
+
 // ---------- STATIK BUGUNGI TRANZAKSIYALAR (10 ta) ----------
 const trxToday = ref([
   { id: 'TRX-1001', user: 'Bobur Boburov',   system: 'Payme', amount: '1 000 000 UZS', date: '01.09.2025', time: '09:05:18', status: 'Yakunlangan' },
@@ -87,7 +241,17 @@ const usersToday = ref([
   { id: 'U-1010', name: 'Gulbahor Hamidova',  phone: '+998 94 888 77 66', date: '01.09.2025', time: '17:02:59' },
 ])
 
-onMounted(drawChart)
+onMounted(async () => {
+  drawChart()
+  await loadStatisticPies()
+})
+
+onBeforeUnmount(() => {
+  chartInstance?.destroy()
+  regionChartInstance?.destroy()
+  ageChartInstance?.destroy()
+  genderChartInstance?.destroy()
+})
 </script>
 
 <template>
@@ -121,7 +285,118 @@ onMounted(drawChart)
       <div class="h-80">
         <canvas ref="chartCanvas"></canvas>
       </div>
-    </div> 
+    </div>
+
+    <!-- Distribution pie charts -->
+    <div class="grid gap-6 xl:grid-cols-3">
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-slate-800">Hududlar kesimida</h3>
+            <p class="text-sm text-slate-500">Jami: {{ formatNumber(regionTotal) }}</p>
+          </div>
+          <RouterLink
+            to="/admin/detail-table/region"
+            class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-slate-700"
+          >
+            Batafsil
+          </RouterLink>
+        </div>
+        <div class="mt-6 flex-1">
+          <div v-if="pieLoading" class="flex h-64 items-center justify-center">
+            <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+          </div>
+          <div v-else-if="pieError" class="flex h-64 items-center justify-center text-center text-sm text-rose-500">
+            {{ pieError }}
+          </div>
+          <div v-else-if="!regionChartData.values.length" class="flex h-64 items-center justify-center text-sm text-slate-400">
+            Maʼlumot mavjud emas
+          </div>
+          <div v-else class="relative mx-auto aspect-square h-64 max-w-xs">
+            <canvas ref="regionChartCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-slate-800">Yosh kesimida</h3>
+            <p class="text-sm text-slate-500">Jami: {{ formatNumber(ageTotal) }}</p>
+          </div>
+          <RouterLink
+            to="/admin/detail-table/age"
+            class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-slate-700"
+          >
+            Batafsil
+          </RouterLink>
+        </div>
+        <div class="mt-6 flex-1">
+          <div v-if="pieLoading" class="flex h-64 items-center justify-center">
+            <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+          </div>
+          <div v-else-if="pieError" class="flex h-64 items-center justify-center text-center text-sm text-rose-500">
+            {{ pieError }}
+          </div>
+          <div v-else-if="!ageChartData.values.length" class="flex h-64 items-center justify-center text-sm text-slate-400">
+            Maʼlumot mavjud emas
+          </div>
+          <div v-else class="relative mx-auto aspect-square h-64 max-w-xs">
+            <canvas ref="ageChartCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-slate-800">Jins kesimida</h3>
+            <p class="text-sm text-slate-500">Jami: {{ formatNumber(genderTotal) }}</p>
+          </div>
+          <RouterLink
+            to="/admin/detail-table/gender"
+            class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-slate-700"
+          >
+            Batafsil
+          </RouterLink>
+        </div>
+        <div class="mt-6 flex-1">
+          <div v-if="pieLoading" class="flex h-64 items-center justify-center">
+            <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+          </div>
+          <div v-else-if="pieError" class="flex h-64 items-center justify-center text-center text-sm text-rose-500">
+            {{ pieError }}
+          </div>
+          <div v-else-if="!genderChartData.values.length" class="flex h-64 items-center justify-center text-sm text-slate-400">
+            Maʼlumot mavjud emas
+          </div>
+          <div v-else class="relative mx-auto aspect-square h-64 max-w-xs">
+            <canvas ref="genderChartCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- 2 big cards row -->
     <div class="grid gap-6 xl:grid-cols-2">
