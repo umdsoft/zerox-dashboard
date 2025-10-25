@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import api from '../../lib/axios'
 
 // ====== CHART.JS (faqat front mock) ======
@@ -51,10 +51,6 @@ const pieError = ref('')
 
 const numberFormatter = new Intl.NumberFormat('ru-RU')
 const formatNumber = (value) => numberFormatter.format(value ?? 0)
-
-const regionTotal = computed(() => regionChartData.value.values.reduce((sum, v) => sum + v, 0))
-const ageTotal = computed(() => ageChartData.value.values.reduce((sum, v) => sum + v, 0))
-const genderTotal = computed(() => genderChartData.value.values.reduce((sum, v) => sum + v, 0))
 
 const chartLabels = [
   '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
@@ -171,6 +167,50 @@ function parseNumber(value) {
   return Number.isFinite(numeric) ? numeric : 0
 }
 
+function ensureArray(value) {
+  if (Array.isArray(value)) {
+    return value
+  }
+  if (value && typeof value === 'object') {
+    if (Array.isArray(value.data)) {
+      return value.data
+    }
+    return Object.values(value)
+  }
+  return []
+}
+
+function pickFirst(obj, keys) {
+  for (const key of keys) {
+    if (key.includes('.')) {
+      const [first, second] = key.split('.')
+      if (obj?.[first]?.[second] !== undefined) {
+        return obj[first][second]
+      }
+    } else if (Object.prototype.hasOwnProperty.call(obj ?? {}, key)) {
+      return obj[key]
+    }
+  }
+  return undefined
+}
+
+function resolveLabel(value) {
+  if (value == null) {
+    return 'Nomaʼlum'
+  }
+  if (typeof value === 'object') {
+    if (typeof value.name === 'string' && value.name.trim()) {
+      return value.name
+    }
+    if (typeof value.title === 'string' && value.title.trim()) {
+      return value.title
+    }
+    return 'Nomaʼlum'
+  }
+  const label = String(value).trim()
+  return label || 'Nomaʼlum'
+}
+
 async function loadStatisticPies() {
   pieLoading.value = true
   pieError.value = ''
@@ -183,33 +223,67 @@ async function loadStatisticPies() {
 
   try {
     const { data } = await api.get('/dashboard/statistic')
-    const stats = data ?? {}
+    const payload = data?.data ?? data ?? {}
 
-    const regions = Array.isArray(stats.byRegion) ? stats.byRegion : []
+    const regions = ensureArray(
+      payload.byRegion ??
+        payload.region ??
+        payload.regions ??
+        payload.regionStats ??
+        payload.region_statistics ??
+        payload.regionStatistics ??
+        payload.region_distribution
+    )
     regionChartData.value = {
-      labels: regions.map((item) => item.region ?? item.region_name ?? item.name ?? 'Nomaʼlum'),
-      values: regions.map((item) => parseNumber(item.cnt ?? item.count ?? item.total))
+      labels: regions.map((item) => {
+        const raw = pickFirst(item, ['region', 'region_name', 'name', 'label', 'title', 'region.title', 'region.name'])
+        return resolveLabel(raw)
+      }),
+      values: regions.map((item) => parseNumber(pickFirst(item, ['cnt', 'count', 'value', 'total', 'amount', 'sum'])))
     }
 
-    const ages = Array.isArray(stats.byAge) ? stats.byAge : []
+    const ages = ensureArray(
+      payload.byAge ??
+        payload.age ??
+        payload.ages ??
+        payload.ageStats ??
+        payload.age_statistics ??
+        payload.ageStatistics ??
+        payload.age_distribution
+    )
     ageChartData.value = {
-      labels: ages.map((item) => item.age_range ?? item.label ?? 'Nomaʼlum'),
-      values: ages.map((item) => parseNumber(item.count ?? item.cnt ?? item.total))
+      labels: ages.map((item) => {
+        const raw = pickFirst(item, ['age_range', 'range', 'label', 'title', 'name'])
+        return resolveLabel(raw)
+      }),
+      values: ages.map((item) => parseNumber(pickFirst(item, ['count', 'cnt', 'value', 'total', 'amount'])))
     }
 
-    const genders = Array.isArray(stats.byGender) ? stats.byGender : []
+    const genders = ensureArray(
+      payload.byGender ??
+        payload.gender ??
+        payload.genders ??
+        payload.genderStats ??
+        payload.gender_statistics ??
+        payload.genderStatistics ??
+        payload.gender_distribution
+    )
     const genderLabels = []
     const genderValues = []
     genders.forEach((item) => {
-      let label = 'Nomaʼlum'
-      const genderRaw = item.gender ?? item.label
-      if (genderRaw === 1 || genderRaw === '1' || genderRaw === 'male' || genderRaw === 'erkak') {
-        label = 'Erkaklar'
-      } else if (genderRaw === 2 || genderRaw === '2' || genderRaw === 'female' || genderRaw === 'ayol') {
-        label = 'Ayollar'
+      let label = pickFirst(item, ['label', 'title', 'name'])
+      if (!label) {
+        const genderRaw = pickFirst(item, ['gender', 'gender_name', 'code'])
+        if (genderRaw === 1 || genderRaw === '1' || genderRaw === 'male' || genderRaw === 'erkak') {
+          label = 'Erkaklar'
+        } else if (genderRaw === 2 || genderRaw === '2' || genderRaw === 'female' || genderRaw === 'ayol') {
+          label = 'Ayollar'
+        } else if (genderRaw) {
+          label = String(genderRaw)
+        }
       }
-      genderLabels.push(label)
-      genderValues.push(parseNumber(item.cnt ?? item.count ?? item.total))
+      genderLabels.push(resolveLabel(label))
+      genderValues.push(parseNumber(pickFirst(item, ['cnt', 'count', 'value', 'total', 'amount'])))
     })
     genderChartData.value = { labels: genderLabels, values: genderValues }
   } catch (error) {
@@ -314,6 +388,118 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
+      <div class="h-80">
+        <canvas ref="chartCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Distribution pie charts -->
+    <div class="grid gap-6 xl:grid-cols-3">
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-slate-800">Hududlar kesimida</h3>
+          </div>
+          <RouterLink
+            to="/admin/detail-table/region"
+            class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-slate-700"
+          >
+            Batafsil
+          </RouterLink>
+        </div>
+        <div class="mt-6 flex-1">
+          <div v-if="pieLoading" class="flex h-64 items-center justify-center">
+            <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+          </div>
+          <div v-else-if="pieError" class="flex h-64 items-center justify-center text-center text-sm text-rose-500">
+            {{ pieError }}
+          </div>
+          <div v-else-if="!regionChartData.values.length" class="flex h-64 items-center justify-center text-sm text-slate-400">
+            Maʼlumot mavjud emas
+          </div>
+          <div v-else class="relative mx-auto aspect-square h-64 max-w-xs">
+            <canvas ref="regionChartCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-slate-800">Yosh kesimida</h3>
+          </div>
+          <RouterLink
+            to="/admin/detail-table/age"
+            class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-slate-700"
+          >
+            Batafsil
+          </RouterLink>
+        </div>
+        <div class="mt-6 flex-1">
+          <div v-if="pieLoading" class="flex h-64 items-center justify-center">
+            <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+          </div>
+          <div v-else-if="pieError" class="flex h-64 items-center justify-center text-center text-sm text-rose-500">
+            {{ pieError }}
+          </div>
+          <div v-else-if="!ageChartData.values.length" class="flex h-64 items-center justify-center text-sm text-slate-400">
+            Maʼlumot mavjud emas
+          </div>
+          <div v-else class="relative mx-auto aspect-square h-64 max-w-xs">
+            <canvas ref="ageChartCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-slate-800">Jins kesimida</h3>
+          </div>
+          <RouterLink
+            to="/admin/detail-table/gender"
+            class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-slate-700"
+          >
+            Batafsil
+          </RouterLink>
+        </div>
+        <div class="mt-6 flex-1">
+          <div v-if="pieLoading" class="flex h-64 items-center justify-center">
+            <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+          </div>
+          <div v-else-if="pieError" class="flex h-64 items-center justify-center text-center text-sm text-rose-500">
+            {{ pieError }}
+          </div>
+          <div v-else-if="!genderChartData.values.length" class="flex h-64 items-center justify-center text-sm text-slate-400">
+            Maʼlumot mavjud emas
+          </div>
+          <div v-else class="relative mx-auto aspect-square h-64 max-w-xs">
+            <canvas ref="genderChartCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
 
       <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
         <div class="flex items-start justify-between gap-4">
