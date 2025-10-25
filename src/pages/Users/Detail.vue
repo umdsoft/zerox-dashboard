@@ -54,7 +54,7 @@ const user = computed(() => {
     image: u.image ? `https://app.zerox.uz/${u.image}` : null,
     company: u.company ?? '',
     director: u.director ?? '',
-    stir: u.stir ?? '',
+    stir: u.pinfl ?? '',
   }
 })
 
@@ -93,11 +93,7 @@ watch(() => route.params.id, load)
       <aside class="lg:col-span-4">
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm text-center">
           <div class="w-64 h-72 mx-auto rounded-xl overflow-hidden ring-1 ring-slate-200">
-            <img
-              :src="user.image || defaultAvatar"
-              alt="avatar"
-              class="w-full h-full object-cover"
-            />
+            <img :src="user.image || defaultAvatar" alt="avatar" class="w-full h-full object-cover" />
           </div>
 
           <div class="mt-3 font-semibold text-slate-800">{{ user.full_name }}</div>
@@ -119,17 +115,13 @@ watch(() => route.params.id, load)
           </div>
 
           <div class="mt-5 space-y-3">
-            <RouterLink
-              :to="`/users/${user.uid}/contracts`"
-              class="block w-full rounded-md bg-blue-500 hover:bg-blue-600 hover:text-white text-white text-sm text-center py-2"
-            >
+            <RouterLink :to="`/users/${user.uid}/contracts`"
+              class="block w-full rounded-md bg-blue-500 hover:bg-blue-600 hover:text-white text-white text-sm text-center py-2">
               Qarz shartnomalari
             </RouterLink>
 
-            <RouterLink
-              :to="`/users/${user.id}/logins`"
-              class="block w-full rounded-md bg-blue-500 hover:bg-blue-600 hover:text-white text-white text-sm text-center py-2"
-            >
+            <RouterLink :to="`/users/${user.id}/logins`"
+              class="block w-full rounded-md bg-blue-500 hover:bg-blue-600 hover:text-white text-white text-sm text-center py-2">
               Kirishlar arxivi
             </RouterLink>
 
@@ -149,19 +141,48 @@ watch(() => route.params.id, load)
             <table class="w-full table-auto border-collapse">
               <!-- Jismoniy -->
               <tbody v-if="user.type === 2">
-                <tr class="border-b border-slate-200"><td class="w-1/3 px-4 py-3 text-slate-600">Familiya</td><td class="px-4 py-3">{{ user.last_name }}</td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">Ismi</td><td class="px-4 py-3">{{ user.first_name }}</td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">Sharifi</td><td class="px-4 py-3">{{ user.middle_name }}</td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">Tug'ilgan sanasi</td><td class="px-4 py-3">{{ user.brithday }}</td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">Jinsi</td><td class="px-4 py-3">{{ genderLabel(user.gender) }}</td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">Tel raqami</td><td class="px-4 py-3">{{ user.phone }}</td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">Elektron pochta manzili</td><td class="px-4 py-3">-</td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">Viloyat</td><td class="px-4 py-3">{{ user.region }}<span v-if="user.district">, {{ user.district }}</span></td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">Yashash manzili</td><td class="px-4 py-3">{{ user.address }}</td></tr>
+                <tr class="border-b border-slate-200">
+                  <td class="w-1/3 px-4 py-3 text-slate-600">Familiya</td>
+                  <td class="px-4 py-3">{{ user.last_name }}</td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">Ismi</td>
+                  <td class="px-4 py-3">{{ user.first_name }}</td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">Sharifi</td>
+                  <td class="px-4 py-3">{{ user.middle_name }}</td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">Tug'ilgan sanasi</td>
+                  <td class="px-4 py-3">{{ user.brithday }}</td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">Jinsi</td>
+                  <td class="px-4 py-3">{{ genderLabel(user.gender) }}</td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">Tel raqami</td>
+                  <td class="px-4 py-3">{{ user.phone }}</td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">Elektron pochta manzili</td>
+                  <td class="px-4 py-3">-</td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">Viloyat</td>
+                  <td class="px-4 py-3">{{ user.region }}<span v-if="user.district">, {{ user.district }}</span></td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">Yashash manzili</td>
+                  <td class="px-4 py-3">{{ user.address }}</td>
+                </tr>
+
                 <tr class="border-b border-slate-200">
                   <td class="px-4 py-3 text-slate-600">Oferta tasdiqlangan sana</td>
                   <td class="px-4 py-3">
-                    <span v-if="user.contract_date">{{ user.contract_date }} <span v-if="user.con_time">{{ user.con_time }}</span></span>
+                    <span v-if="user.contract_date">{{ user.contract_date }} <span v-if="user.con_time">{{ user.con_time
+                        }}</span></span>
                     <span v-else>—</span>
                   </td>
                 </tr>
@@ -169,23 +190,48 @@ watch(() => route.params.id, load)
                   <td class="px-4 py-3 text-slate-600">Pasport ma'lumoti</td>
                   <td class="px-4 py-3 space-y-1">
                     <div><b>Pasport seriasi:</b> {{ user.passport || '—' }}</div>
+                    <div><b>JSHSHIR:</b> {{ user.stir || '—' }}</div>
                     <div><b>Kim tomonidan berilgan:</b> {{ user.issued_by || '—' }}</div>
                     <div><b>Berilgan vaqti:</b> {{ user.issued_date || '—' }}</div>
                     <div><b>Amal qilish muddati:</b> {{ user.expiry_date || '—' }}</div>
                   </td>
                 </tr>
-                <tr><td class="px-4 py-3 text-slate-600">Status</td><td class="px-4 py-3">{{ user.rating }}</td></tr>
+                <tr>
+                  <td class="px-4 py-3 text-slate-600">Status</td>
+                  <td class="px-4 py-3">{{ user.rating }}</td>
+                </tr>
               </tbody>
 
               <!-- Yuridik -->
               <tbody v-else>
-                <tr class="border-b border-slate-200"><td class="w-1/3 px-4 py-3 text-slate-600">Korxona nomi</td><td class="px-4 py-3">{{ user.company }}</td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">Rahbar</td><td class="px-4 py-3">{{ user.director }}</td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">STIR</td><td class="px-4 py-3">{{ user.stir }}</td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">Tel raqami</td><td class="px-4 py-3">{{ user.phone }}</td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">Elektron pochta manzili</td><td class="px-4 py-3">-</td></tr>
-                <tr class="border-b border-slate-200"><td class="px-4 py-3 text-slate-600">Yuridik manzili</td><td class="px-4 py-3">{{ user.address }}</td></tr>
-                <tr><td class="px-4 py-3 text-slate-600">Status</td><td class="px-4 py-3">{{ user.rating }}</td></tr>
+                <tr class="border-b border-slate-200">
+                  <td class="w-1/3 px-4 py-3 text-slate-600">Korxona nomi</td>
+                  <td class="px-4 py-3">{{ user.company }}</td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">Rahbar</td>
+                  <td class="px-4 py-3">{{ user.director }}</td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">STIR</td>
+                  <td class="px-4 py-3">{{ user.stir }}</td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">Tel raqami</td>
+                  <td class="px-4 py-3">{{ user.phone }}</td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">Elektron pochta manzili</td>
+                  <td class="px-4 py-3">-</td>
+                </tr>
+                <tr class="border-b border-slate-200">
+                  <td class="px-4 py-3 text-slate-600">Yuridik manzili</td>
+                  <td class="px-4 py-3">{{ user.address }}</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 text-slate-600">Status</td>
+                  <td class="px-4 py-3">{{ user.rating }}</td>
+                </tr>
               </tbody>
             </table>
           </div>
