@@ -184,7 +184,7 @@ async function loadStatisticPies() {
   try {
     const { data } = await api.get('/dashboard/statistic')
     const stats = data ?? {}
-
+    console.log('Dashboard statistics data:', stats)
     const regions = Array.isArray(stats.byRegion) ? stats.byRegion : []
     regionChartData.value = {
       labels: regions.map((item) => item.region ?? item.region_name ?? item.name ?? 'Nomaʼlum'),
