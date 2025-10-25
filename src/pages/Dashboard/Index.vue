@@ -7,12 +7,43 @@ import { Chart, PieController, ArcElement, Tooltip, Legend } from 'chart.js'
 
 Chart.register(PieController, ArcElement, Tooltip, Legend)
 
-// ---------- STATIK TOP STATS ----------
-const topStats = ref([
-  { key: 'users_total', label: 'Foydalanuvchilar', value: '12', icon: 'users', tint: 'bg-sky-100 text-sky-600' },
-  { key: 'month_revenue', label: 'Tushumlar', value: '84 930 000 UZS', icon: 'wallet', tint: 'bg-emerald-100 text-emerald-600' },
-  { key: 'contracts_total', label: 'Shartnomalar', value: '34', icon: 'file-invoice', tint: 'bg-indigo-100 text-indigo-600' },
-  { key: 'contracts_today', label: 'Bugungi shartnomalar', value: '0', icon: 'calendar-days', tint: 'bg-amber-100 text-amber-600' },
+// ---------- TOP STATS ----------
+const overviewStats = ref({
+  usersTotal: 0,
+  revenueMonthNet: 0,
+  contractsTotal: 0,
+  contractsToday: 0,
+})
+
+const topStats = computed(() => [
+  {
+    key: 'users_total',
+    label: 'Foydalanuvchilar',
+    value: formatNumber(overviewStats.value.usersTotal),
+    icon: 'users',
+    tint: 'bg-sky-100 text-sky-600',
+  },
+  {
+    key: 'month_revenue',
+    label: 'Tushumlar',
+    value: formatCurrency(overviewStats.value.revenueMonthNet),
+    icon: 'wallet',
+    tint: 'bg-emerald-100 text-emerald-600',
+  },
+  {
+    key: 'contracts_total',
+    label: 'Shartnomalar',
+    value: formatNumber(overviewStats.value.contractsTotal),
+    icon: 'file-invoice',
+    tint: 'bg-indigo-100 text-indigo-600',
+  },
+  {
+    key: 'contracts_today',
+    label: 'Bugungi shartnomalar',
+    value: formatNumber(overviewStats.value.contractsToday),
+    icon: 'calendar-days',
+    tint: 'bg-amber-100 text-amber-600',
+  },
 ])
 
 const regionChartCanvas = ref(null)
@@ -32,10 +63,11 @@ const pieError = ref('')
 
 const numberFormatter = new Intl.NumberFormat('ru-RU')
 const formatNumber = (value) => numberFormatter.format(value ?? 0)
+const formatCurrency = (value) => `${formatNumber(value)} UZS`
 
-const regionTotal = computed(() => regionChartData.value.values.reduce((sum, v) => sum + v, 0))
-const ageTotal = computed(() => ageChartData.value.values.reduce((sum, v) => sum + v, 0))
-const genderTotal = computed(() => genderChartData.value.values.reduce((sum, v) => sum + v, 0))
+const regionTotal = computed(() => sumPositive(regionChartData.value.values))
+const ageTotal = computed(() => sumPositive(ageChartData.value.values))
+const genderTotal = computed(() => sumPositive(genderChartData.value.values))
 
 const piePalette = ['#0ea5e9', '#22d3ee', '#6366f1', '#a855f7', '#f472b6', '#f97316', '#facc15', '#34d399', '#14b8a6', '#fb7185']
 
@@ -62,14 +94,27 @@ function drawPieChart(canvasRef, dataset, currentInstance) {
   if (!ctx) {
     return null
   }
-  const colors = getPieColors(dataset.values.length)
+  const entries = dataset.labels
+    .map((label, index) => ({
+      label,
+      value: Number(dataset.values[index]) || 0,
+    }))
+    .filter((entry) => entry.value > 0)
+
+  if (!entries.length) {
+    return null
+  }
+
+  const labels = entries.map((entry) => entry.label)
+  const values = entries.map((entry) => entry.value)
+  const colors = getPieColors(values.length)
   return new Chart(ctx, {
     type: 'pie',
     data: {
-      labels: dataset.labels,
+      labels,
       datasets: [
         {
-          data: dataset.values,
+          data: values,
           backgroundColor: colors,
           borderColor: '#ffffff',
           borderWidth: 2,
@@ -84,13 +129,7 @@ function drawPieChart(canvasRef, dataset, currentInstance) {
       layout: { padding: 10 },
       plugins: {
         legend: {
-          position: 'bottom',
-          labels: {
-            usePointStyle: true,
-            pointStyle: 'circle',
-            boxWidth: 10,
-            padding: 16
-          }
+          display: false
         },
         tooltip: {
           callbacks: {
@@ -114,6 +153,103 @@ function parseNumber(value) {
   return Number.isFinite(numeric) ? numeric : 0
 }
 
+function sumPositive(values) {
+  if (!Array.isArray(values)) {
+    return 0
+  }
+  return values.reduce((sum, value) => {
+    const numeric = Number(value)
+    return Number.isFinite(numeric) && numeric > 0 ? sum + numeric : sum
+  }, 0)
+}
+
+function buildDatasetSummary(dataset) {
+  if (!dataset || !Array.isArray(dataset.labels) || !Array.isArray(dataset.values)) {
+    return []
+  }
+
+  const sanitizedValues = dataset.values.map((value) => {
+    const numeric = Number(value)
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : 0
+  })
+  const total = sanitizedValues.reduce((sum, value) => sum + value, 0)
+
+  if (!total) {
+    return []
+  }
+
+  const colors = getPieColors(dataset.labels.length)
+
+  return dataset.labels.reduce((acc, label, index) => {
+    const rawValue = sanitizedValues[index] ?? 0
+    if (!rawValue) {
+      return acc
+    }
+
+    const percentRaw = (rawValue / total) * 100
+    const percent = Math.round(percentRaw * 10) / 10
+
+    acc.push({
+      label,
+      value: rawValue,
+      percent,
+      percentLabel: `${percent.toFixed(1)}%`,
+      color: colors[index % colors.length],
+    })
+
+    return acc
+  }, [])
+}
+
+const chartSections = computed(() => {
+  const sections = [
+    {
+      key: 'region',
+      title: 'Hududlar kesimida',
+      total: regionTotal.value,
+      detailRoute: '/admin/detail-table/region',
+      dataset: regionChartData.value,
+      canvasRef: regionChartCanvas,
+      emptyText: 'Maʼlumot mavjud emas',
+    },
+    {
+      key: 'age',
+      title: 'Yosh kesimida',
+      total: ageTotal.value,
+      detailRoute: '/admin/detail-table/age',
+      dataset: ageChartData.value,
+      canvasRef: ageChartCanvas,
+      emptyText: 'Maʼlumot mavjud emas',
+    },
+    {
+      key: 'gender',
+      title: 'Jins kesimida',
+      total: genderTotal.value,
+      detailRoute: '/admin/detail-table/gender',
+      dataset: genderChartData.value,
+      canvasRef: genderChartCanvas,
+      emptyText: 'Maʼlumot mavjud emas',
+    },
+  ]
+
+  return sections.map((section) => {
+    const rawValues = Array.isArray(section.dataset?.values) ? section.dataset.values : []
+    const sanitizedValues = rawValues.map((value) => {
+      const numeric = Number(value)
+      return Number.isFinite(numeric) && numeric > 0 ? numeric : 0
+    })
+    const hasData = sanitizedValues.some((value) => value > 0)
+    const summary = hasData
+      ? buildDatasetSummary({ ...section.dataset, values: sanitizedValues })
+      : []
+    return {
+      ...section,
+      summary,
+      hasData,
+    }
+  })
+})
+
 async function loadStatisticPies() {
   pieLoading.value = true
   pieError.value = ''
@@ -127,7 +263,6 @@ async function loadStatisticPies() {
   try {
     const { data } = await api.get('/dashboard/statistic')
     const stats = data ?? {}
-    console.log('Dashboard statistics data:', stats)
     const regions = Array.isArray(stats.byRegion) ? stats.byRegion : []
     regionChartData.value = {
       labels: regions.map((item) => item.region ?? item.region_name ?? item.name ?? 'Nomaʼlum'),
@@ -155,6 +290,26 @@ async function loadStatisticPies() {
       genderValues.push(parseNumber(item.cnt ?? item.count ?? item.total))
     })
     genderChartData.value = { labels: genderLabels, values: genderValues }
+
+    const overview = stats.stats ?? {}
+    overviewStats.value = {
+      usersTotal: parseNumber(
+        overview.usersTotal ?? overview.users_total ?? overview.totalUsers ?? overview.users
+      ),
+      revenueMonthNet: parseNumber(
+        overview.revenueMonthNet ??
+          overview.revenue_month_net ??
+          overview.monthRevenue ??
+          overview.revenue ??
+          overview.totalRevenue
+      ),
+      contractsTotal: parseNumber(
+        overview.contractsTotal ?? overview.contracts_total ?? overview.totalContracts
+      ),
+      contractsToday: parseNumber(
+        overview.contractsToday ?? overview.contracts_today ?? overview.todayContracts
+      ),
+    }
   } catch (error) {
     console.error('Failed to load dashboard statistics', error)
     pieError.value = 'Maʼlumotlarni yuklashda xatolik yuz berdi.'
@@ -212,7 +367,7 @@ onBeforeUnmount(() => {
     <!-- 4 top stats -->
     <div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
       <div v-for="s in topStats" :key="s.key"
-        class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-start gap-4">
+        class="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <!-- FontAwesome icon -->
         <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0', s.tint]">
           <fa :icon="s.icon" />
@@ -225,95 +380,71 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="grid gap-6 xl:grid-cols-3">
-      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
+      <div v-for="section in chartSections" :key="section.key"
+        class="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <h3 class="text-base font-semibold text-slate-800">Hududlar kesimida</h3>
-            <p class="text-sm text-slate-500">Jami: {{ formatNumber(regionTotal) }}</p>
+            <h3 class="text-base font-semibold text-slate-800">{{ section.title }}</h3>
+            <p class="text-sm text-slate-500">Jami: {{ formatNumber(section.total) }}</p>
           </div>
-          <RouterLink to="/admin/detail-table/region"
+          <RouterLink :to="section.detailRoute"
             class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-slate-700">
             Batafsil
           </RouterLink>
         </div>
-        <div class="mt-6 flex-1">
-          <div v-if="pieLoading" class="flex h-64 items-center justify-center">
-            <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-            </svg>
+        <div class="mt-6 flex flex-1 flex-col gap-5">
+          <div class="flex-1">
+            <div v-if="pieLoading" class="flex h-[360px] items-center justify-center">
+              <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+            </div>
+            <div v-else-if="pieError" class="flex h-[360px] items-center justify-center text-center text-sm text-rose-500">
+              {{ pieError }}
+            </div>
+            <div v-else-if="!section.hasData"
+              class="flex h-[360px] items-center justify-center rounded-2xl border border-dashed border-slate-200 text-sm text-slate-400">
+              {{ section.emptyText }}
+            </div>
+            <div v-else class="relative h-[360px] w-full overflow-hidden rounded-2xl bg-slate-50 p-4 shadow-inner">
+              <canvas :ref="section.canvasRef"></canvas>
+            </div>
           </div>
-          <div v-else-if="pieError" class="flex h-64 items-center justify-center text-center text-sm text-rose-500">
-            {{ pieError }}
-          </div>
-          <div v-else-if="!regionChartData.values.length"
-            class="flex h-64 items-center justify-center text-sm text-slate-400">
-            Maʼlumot mavjud emas
-          </div>
-          <div v-else class="relative mx-auto aspect-square h-64 max-w-xs">
-            <canvas ref="regionChartCanvas"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h3 class="text-base font-semibold text-slate-800">Yosh kesimida</h3>
-            <p class="text-sm text-slate-500">Jami: {{ formatNumber(ageTotal) }}</p>
-          </div>
-          <RouterLink to="/admin/detail-table/age"
-            class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-slate-700">
-            Batafsil
-          </RouterLink>
-        </div>
-        <div class="mt-6 flex-1">
-          <div v-if="pieLoading" class="flex h-64 items-center justify-center">
-            <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-            </svg>
-          </div>
-          <div v-else-if="pieError" class="flex h-64 items-center justify-center text-center text-sm text-rose-500">
-            {{ pieError }}
-          </div>
-          <div v-else-if="!ageChartData.values.length"
-            class="flex h-64 items-center justify-center text-sm text-slate-400">
-            Maʼlumot mavjud emas
-          </div>
-          <div v-else class="relative mx-auto aspect-square h-64 max-w-xs">
-            <canvas ref="ageChartCanvas"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h3 class="text-base font-semibold text-slate-800">Jins kesimida</h3>
-            <p class="text-sm text-slate-500">Jami: {{ formatNumber(genderTotal) }}</p>
-          </div>
-          <RouterLink to="/admin/detail-table/gender"
-            class="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-slate-700">
-            Batafsil
-          </RouterLink>
-        </div>
-        <div class="mt-6 flex-1">
-          <div v-if="pieLoading" class="flex h-64 items-center justify-center">
-            <svg class="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-            </svg>
-          </div>
-          <div v-else-if="pieError" class="flex h-64 items-center justify-center text-center text-sm text-rose-500">
-            {{ pieError }}
-          </div>
-          <div v-else-if="!genderChartData.values.length"
-            class="flex h-64 items-center justify-center text-sm text-slate-400">
-            Maʼlumot mavjud emas
-          </div>
-          <div v-else class="relative mx-auto aspect-square h-64 max-w-xs">
-            <canvas ref="genderChartCanvas"></canvas>
+          <div class="rounded-2xl border border-slate-100 bg-white/70 p-5 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h4 class="text-sm font-semibold text-slate-700">Maʼlumotlar</h4>
+              <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Jami: {{ formatNumber(section.total) }}
+              </span>
+            </div>
+            <div class="mt-4">
+              <div v-if="pieLoading" class="flex items-center justify-center py-8 text-sm text-slate-400">
+                Yuklanmoqda...
+              </div>
+              <div v-else-if="pieError" class="text-sm text-rose-500">
+                {{ pieError }}
+              </div>
+              <div v-else-if="!section.hasData" class="text-sm text-slate-400">
+                {{ section.emptyText }}
+              </div>
+              <ul v-else class="grid gap-3 sm:grid-cols-2">
+                <li v-for="item in section.summary" :key="item.label"
+                  class="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
+                  <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <span class="inline-block h-2.5 w-2.5 rounded-full" :style="{ backgroundColor: item.color }"></span>
+                    <span class="truncate">{{ item.label }}</span>
+                  </div>
+                  <div class="mt-2 flex items-baseline justify-between text-sm text-slate-700">
+                    <span class="font-semibold">{{ formatNumber(item.value) }}</span>
+                    <span class="text-xs text-slate-500">{{ item.percentLabel }}</span>
+                  </div>
+                  <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+                    <div class="h-full rounded-full" :style="{ width: `${item.percent}%`, backgroundColor: item.color }"></div>
+                  </div>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
