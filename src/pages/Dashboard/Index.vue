@@ -2,25 +2,10 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import api from '../../lib/axios'
 
-// ====== CHART.JS (faqat front mock) ======
-import {
-  Chart,
-  LineController, LineElement, PointElement,
-  CategoryScale, LinearScale, Tooltip, Filler,
-  PieController, ArcElement, Legend
-} from 'chart.js'
-Chart.register(
-  LineController,
-  LineElement,
-  PointElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  Filler,
-  PieController,
-  ArcElement,
-  Legend
-)
+// ====== CHART.JS ======
+import { Chart, PieController, ArcElement, Tooltip, Legend } from 'chart.js'
+
+Chart.register(PieController, ArcElement, Tooltip, Legend)
 
 // ---------- STATIK TOP STATS ----------
 const topStats = ref([
@@ -29,10 +14,6 @@ const topStats = ref([
   { key: 'contracts_total', label: 'Shartnomalar', value: '34', icon: 'file-invoice', tint: 'bg-indigo-100 text-indigo-600' },
   { key: 'contracts_today', label: 'Bugungi shartnomalar', value: '0', icon: 'calendar-days', tint: 'bg-amber-100 text-amber-600' },
 ])
-
-// ---------- STATIK CHART MA’LUMOTI ----------
-const chartCanvas = ref(null)
-let chartInstance = null
 
 const regionChartCanvas = ref(null)
 const ageChartCanvas = ref(null)
@@ -55,44 +36,6 @@ const formatNumber = (value) => numberFormatter.format(value ?? 0)
 const regionTotal = computed(() => regionChartData.value.values.reduce((sum, v) => sum + v, 0))
 const ageTotal = computed(() => ageChartData.value.values.reduce((sum, v) => sum + v, 0))
 const genderTotal = computed(() => genderChartData.value.values.reduce((sum, v) => sum + v, 0))
-
-const chartLabels = [
-  '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
-  '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'
-]
-const chartData = [
-  1200000, 800000, 2500000, 3100000, 1000000, 1800000,
-  2100000, 1700000, 2900000, 3400000, 2200000, 1600000
-]
-
-function drawChart() {
-  const ctx = chartCanvas.value?.getContext('2d')
-  if (!ctx) return
-  if (chartInstance) chartInstance.destroy()
-
-  chartInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: chartLabels,
-      datasets: [{
-        label: 'Bugungi tushum',
-        data: chartData,
-        borderWidth: 2,
-        tension: 0.35,
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { intersect: false } },
-      scales: {
-        x: { grid: { display: false } },
-        y: { ticks: { callback: (v) => new Intl.NumberFormat('ru-RU').format(v) } }
-      }
-    }
-  })
-}
 
 const piePalette = ['#0ea5e9', '#22d3ee', '#6366f1', '#a855f7', '#f472b6', '#f97316', '#facc15', '#34d399', '#14b8a6', '#fb7185']
 
@@ -217,11 +160,11 @@ async function loadStatisticPies() {
     pieError.value = 'Maʼlumotlarni yuklashda xatolik yuz berdi.'
     resetData()
   } finally {
+    pieLoading.value = false
     await nextTick()
     regionChartInstance = drawPieChart(regionChartCanvas, regionChartData.value, regionChartInstance)
     ageChartInstance = drawPieChart(ageChartCanvas, ageChartData.value, ageChartInstance)
     genderChartInstance = drawPieChart(genderChartCanvas, genderChartData.value, genderChartInstance)
-    pieLoading.value = false
   }
 }
 
@@ -254,12 +197,10 @@ const usersToday = ref([
 ])
 
 onMounted(async () => {
-  drawChart()
   await loadStatisticPies()
 })
 
 onBeforeUnmount(() => {
-  chartInstance?.destroy()
   regionChartInstance?.destroy()
   ageChartInstance?.destroy()
   genderChartInstance?.destroy()
