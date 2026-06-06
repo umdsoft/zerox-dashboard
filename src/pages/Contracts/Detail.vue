@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../../lib/axios'
+import { pdfUrl as buildPdfUrl } from '../../lib/config'
 
 // ------- STATE -------
 const route = useRoute()
@@ -28,14 +29,18 @@ function fmtMoney(n) {
   return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(isNaN(num) ? 0 : num)
 }
 
-// Hujjat turi mapping (eski paneldagi ketma-ketlik)
+// Hujjat turi mapping — backend Act modelidagi to'liq ro'yxat (8 ta turdan iborat).
+// Avval 5 va 7 yo'q edi — natijada rad qilingan qisman voz kechish va talab
+// dalolatnomalari "—" ko'rinardi.
 const DOC_TYPE_MAP = {
   0: "Qarz mablag‘i olinganligi to‘g‘risida dalolatnoma",
   1: "Qarz qisman qaytarilganligi to‘g‘risida dalolatnoma",
   2: "Qarz to‘liq qaytarilganligi to‘g‘risida dalolatnoma",
   3: "Qarz muddati uzaytirilganligi to‘g‘risida dalolatnoma",
-  4: "Qarzdan voz kechilganligi to‘g‘risida dalolatnoma",
+  4: "Qarzdan to‘liq voz kechilganligi to‘g‘risida dalolatnoma",
+  5: "Qarzdan qisman voz kechilganligi to‘g‘risida dalolatnoma",
   6: "Qarz muddati uzaytirilganligi to‘g‘risida dalolatnoma",
+  7: "Qarzni qaytarishni talab qilish dalolatnomasi",
 }
 const typeLabel = (t) => DOC_TYPE_MAP[Number(t)] ?? '—'
 
@@ -51,7 +56,57 @@ function statusView(s) {
 const contract = computed(() => raw.value?.contract ?? null)
 const acts = computed(() => Array.isArray(raw.value?.acts) ? raw.value.acts : [])
 
-// ------- API -------
+// ------- API (moslashuvchan ajratish) -------
+// Backend "contract" ni turli joyda qaytarishi mumkin.
+function pickContract(payload) {
+  if (payload?.contract) return payload.contract
+  if (payload?.data?.contract) return payload.data.contract
+  // To'g'ridan-to'g'ri obyektning o'zi shartnoma bo'lishi mumkin
+  if (payload && (payload.number != null || payload.uid != null) && payload.amount != null) return payload
+  return null
+}
+// "acts" (amaliyotlar / qarz daftari) turli kalitlarda kelishi mumkin — hammasini sinab ko'ramiz.
+// MUHIM: agar `payload.acts` mavjud bo'lsa (hatto bo'sh massiv bo'lsa ham), uni
+// qaytaramiz — heuristika boshqa nomdagi massivni xato kategoriyaga olib
+// chiqmasin (masalan, contract.acts NULL bo'lsa). Backend
+// `{ success, contract, acts: [...] }` qaytaradi, shuning uchun shu yagona
+// muvofiqlikni hurmat qilamiz.
+function pickActs(payload, contract) {
+  if (Array.isArray(payload?.acts)) return payload.acts
+  if (Array.isArray(payload?.data?.acts)) return payload.data.acts
+  const candidates = [
+    payload?.documents, payload?.operations, payload?.history,
+    payload?.actions, payload?.daftar, payload?.dalolatnoma, payload?.dalolatnomalar,
+    payload?.data?.documents,
+    contract?.acts, contract?.documents, contract?.operations, contract?.history,
+  ]
+  for (const c of candidates) if (Array.isArray(c) && c.length) return c
+  // Heuristika: ichidagi birinchi "amaliyotga o'xshash" massiv (type/status/summa maydonlari bor)
+  for (const src of [payload, contract]) {
+    for (const v of Object.values(src || {})) {
+      if (Array.isArray(v) && v.length && typeof v[0] === 'object' &&
+          ('type' in v[0] || 'status' in v[0] || 'residual_amount' in v[0] || 'refundable_amount' in v[0])) {
+        return v
+      }
+    }
+  }
+  return []
+}
+// Har bir amaliyot maydonlarini turli nomlarga moslaymiz.
+function normalizeAct(a) {
+  return {
+    id: a.id ?? a._id ?? a.uid,
+    type: a.type ?? a.doc_type ?? a.documentType ?? a.act_type,
+    created_at: a.created_at ?? a.createdAt ?? a.date ?? a.created,
+    refundable_amount: a.refundable_amount ?? a.refund_amount ?? a.returned_amount ?? a.paid_amount ?? 0,
+    vos_summa: a.vos_summa ?? a.voz_summa ?? a.waived_amount ?? a.vos_amount ?? 0,
+    residual_amount: a.residual_amount ?? a.remain ?? a.remainder ?? a.qoldiq ?? 0,
+    end_date: a.end_date ?? a.return_date ?? a.due_date ?? a.end,
+    status: a.status,
+    res_name: a.res_name ?? a.responsible_name ?? a.executor ?? a.res,
+  }
+}
+
 async function load() {
   const id = route.params.id
   if (!id) { err.value = 'Noto‘g‘ri kontrakt ID'; return }
@@ -59,11 +114,11 @@ async function load() {
   err.value = ''
   try {
     const res = await api.get(`/contract/admin/contract/${id}`)
-    // eski panel: { contract, acts }; ba'zida {data:{contract,acts}}
-    const payload = res?.data?.data ?? res?.data ?? res
+    const payload = res?.data?.data ?? res?.data ?? res ?? {}
+    const contractObj = pickContract(payload)
     raw.value = {
-      contract: payload.contract ?? payload?.data?.contract ?? null,
-      acts: payload.acts ?? payload?.data?.acts ?? [],
+      contract: contractObj,
+      acts: pickActs(payload, contractObj).map(normalizeAct),
     }
   } catch (e) {
     err.value = e?.response?.data?.message || e?.message || 'Yuklashda xatolik'
@@ -74,14 +129,18 @@ async function load() {
 onMounted(load)
 watch(() => route.params.id, load)
 
-// ------- PDF YUKLAB OLISH (eski paneldagi URL formatiga mos) -------
-const locale = 'uz' // agar i18n bo‘lsa, o‘zingizdan oling
-const pdfUrl = computed(() =>
-  contract.value ? `https://pdf.zerox.uz/index.php?id=${contract.value.uid}&lang=${locale}&download=1` : '#'
-)
-const pdfAllUrl = computed(() =>
-  contract.value ? `https://pdf.zerox.uz/index.php?id=${contract.value.uid}&lang=${locale}&download=1&all=1` : '#'
-)
+// ------- PDF YUKLAB OLISH -------
+// Markazlashtirilgan config.js'dagi pdfUrl helper'i orqali — PDF_BASE manzili
+// .env dan keladi. Hardcoded URL endi yo'q (testdan testga ko'chirish o'rinli).
+const locale = 'uz'
+const pdfUrl = computed(() => buildPdfUrl(contract.value?.uid, { lang: locale, download: 1 }))
+const pdfAllUrl = computed(() => {
+  if (!contract.value?.uid) return '#'
+  // Backend "all=1" qo'shimcha parametrini ham kutadi — pdfUrl helper buni
+  // qaytarganini "all=1" bilan boyitamiz (raw query qo'shamiz).
+  const base = buildPdfUrl(contract.value.uid, { lang: locale, download: 1 })
+  return base === '#' ? '#' : `${base}&all=1`
+})
 </script>
 
 <template>

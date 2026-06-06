@@ -14,7 +14,7 @@ const navigation = [
   { name: 'Foydalanuvchilar', to: { name: 'users' }, icon: 'users' },
   { name: 'To‘lovlar', to: { name: 'payments' }, icon: 'credit-card' },
   { name: 'Qarz shartnomalari', to: { name: 'contracts' }, icon: 'document-text' },
-  { name: 'Mobil versiya', to: { name: 'mobile-version' }, icon: 'fa-solid fa-mobile' }
+  { name: 'Mobil versiya', to: { name: 'mobile-version' }, icon: 'mobile' }
 ];
 
 const activePath = computed(() => route.name);
@@ -94,6 +94,8 @@ const toggleSidebar = () => {
                         ? 'M17 20v-2a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v2M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm6 13v-2a3 3 0 0 0-2-2.82M21 7a3 3 0 0 1-5.72 1'
                         : item.icon === 'credit-card'
                         ? 'M2.25 9h19.5M4.5 15h5.25M3 5.25h18a.75.75 0 0 1 .75.75v12a.75.75 0 0 1-.75.75H3A.75.75 0 0 1 2.25 18V6A.75.75 0 0 1 3 5.25z'
+                        : item.icon === 'mobile'
+                        ? 'M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3'
                         : 'M4.5 4.5h11.25L21 9.75V19.5a.75.75 0 0 1-.75.75H4.5A.75.75 0 0 1 3.75 19.5V5.25a.75.75 0 0 1 .75-.75zm7.5 7.5h5.25M12 15h5.25M6.75 12h1.5v6h-1.5z'
                     "
                   />

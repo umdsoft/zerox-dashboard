@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import api from '../../lib/axios'
+import { assetUrl, pdfUrl } from '../../lib/config'
 // default avatar (fix for vite import)
 import defaultAvatar from '../../../assets/img/no-avatar.png'
 
@@ -51,7 +52,7 @@ const user = computed(() => {
     expiry_date: u.expiry_date ? fmtDate(u.expiry_date, true) : '',
     rating: u.rating ?? 0,
     balance: u.balance ?? 0,
-    image: u.image ? `https://app.zerox.uz/${u.image}` : null,
+    image: assetUrl(u.image),
     company: u.company ?? '',
     director: u.director ?? '',
     stir: u.pinfl ?? '',
@@ -59,7 +60,7 @@ const user = computed(() => {
 })
 
 const ofertaPdf = computed(() =>
-  user.value.uid ? `https://pdf.zerox.uz/oferta.php?id=${user.value.uid}&download=1` : '#'
+  user.value.uid ? pdfUrl(user.value.uid, { file: 'oferta.php' }) : '#'
 )
 
 async function load() {

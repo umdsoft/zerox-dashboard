@@ -1,19 +1,57 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, unref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import api from '../../lib/axios'
-import { Chart, PieController, ArcElement, Tooltip, Legend } from 'chart.js'
-Chart.register(PieController, ArcElement, Tooltip, Legend)
 
 // ---------- TOP STATS ----------
-const overviewStats = ref({ usersTotal: 0, revenueMonthNet: 0, contractsTotal: 0, contractsToday: 0 })
+// Har bir karta endi 2 ta ko'rsatkich: asosiy son + "shundan bu oyda" sub-qiymat.
+// Backend `/dashboard/statistic` 8 ta qiymatni qaytaradi (4 ta juftlik).
+const overviewStats = ref({
+  usersRegistered: 0,
+  usersRegisteredThisMonth: 0,
+  usersActive: 0,
+  usersActiveThisMonth: 0,
+  contractsTotal: 0,
+  contractsThisMonth: 0,
+  revenueTotal: 0,
+  revenueThisMonth: 0,
+})
 const nf = new Intl.NumberFormat('ru-RU')
 const fmtN = (v) => nf.format(v ?? 0)
 const fmtC = (v) => `${fmtN(v)} UZS`
+
 const topStats = computed(() => ([
-  { key:'users_total',     label:'Aktiv foydalanuvchilar soni',     value:fmtN(overviewStats.value.usersTotal),     icon:'users',        tint:'bg-sky-100 text-sky-600' },
-  { key:'month_revenue',   label:'Bu oydagi tushumlar',            value:fmtC(overviewStats.value.revenueMonthNet), icon:'wallet',       tint:'bg-emerald-100 text-emerald-600' },
-  { key:'contracts_total', label:'Umumiy Shartnomalar',          value:fmtN(overviewStats.value.contractsTotal),  icon:'file-invoice', tint:'bg-indigo-100 text-indigo-600' },
-  { key:'contracts_today', label:'Bugungi shartnomalar',  value:fmtN(overviewStats.value.contractsToday),  icon:'calendar-days',tint:'bg-amber-100 text-amber-600' },
+  {
+    key: 'users_registered',
+    label: "Ro'yxatdan o'tgan foydalanuvchilar",
+    value: fmtN(overviewStats.value.usersRegistered),
+    sub: `Shundan bu oyda: ${fmtN(overviewStats.value.usersRegisteredThisMonth)}`,
+    icon: 'users',
+    tint: 'bg-sky-100 text-sky-600',
+  },
+  {
+    key: 'users_active',
+    label: 'Aktiv foydalanuvchilar',
+    value: fmtN(overviewStats.value.usersActive),
+    sub: `Shundan bu oyda: ${fmtN(overviewStats.value.usersActiveThisMonth)}`,
+    icon: 'users',
+    tint: 'bg-emerald-100 text-emerald-600',
+  },
+  {
+    key: 'contracts_total',
+    label: 'Shartnomalar',
+    value: fmtN(overviewStats.value.contractsTotal),
+    sub: `Shundan bu oyda: ${fmtN(overviewStats.value.contractsThisMonth)}`,
+    icon: 'file-invoice',
+    tint: 'bg-indigo-100 text-indigo-600',
+  },
+  {
+    key: 'revenue_total',
+    label: 'Jami tushum',
+    value: fmtC(overviewStats.value.revenueTotal),
+    sub: `Shundan bu oyda: ${fmtC(overviewStats.value.revenueThisMonth)}`,
+    icon: 'wallet',
+    tint: 'bg-amber-100 text-amber-600',
+  },
 ]))
 
 // ---------- RAW DATA ----------
@@ -27,16 +65,35 @@ const num = (v)=>Number.isFinite(Number(v))?Number(v):0
 const palette = ['#0ea5e9','#22d3ee','#6366f1','#a855f7','#f472b6','#f97316','#facc15','#34d399','#14b8a6','#fb7185']
 const colorsFor = (n)=>Array.from({length:n},(_,i)=>palette[i%palette.length])
 
+// ---------- LABEL NORMALIZERS ----------
+// "Луғат топилмади" / "lug'at topilmadi" kabi aniqlanmagan hududlarni tushunarli qilib ko'rsatamiz.
+function normalizeRegionLabel(label){
+  const s = String(label ?? '').trim()
+  if (!s || /топилмади|topilmadi|lug.?at/i.test(s)) return 'Aniqlanmagan hudud'
+  return s
+}
+// Yosh oralig'ini tushunarli ko'rinishga keltiramiz ("18 - 25" -> "18–25 yosh").
+function normalizeAgeLabel(label){
+  const s = String(label ?? '').trim()
+  if (/^under\s*\d+/i.test(s))  return s.replace(/^under\s*(\d+)/i, '$1 yoshgacha')
+  if (/^over\s*\d+/i.test(s))   return s.replace(/^over\s*(\d+)/i, '$1 yoshdan yuqori')
+  const m = s.match(/^(\d+)\s*-\s*(\d+)$/)
+  if (m) return `${m[1]}–${m[2]} yosh`
+  return s || 'Nomaʼlum'
+}
+
 // ---------- ENTRIES (sanitized, >0) ----------
-function toEntries(dataset){
+function toEntries(dataset, { sortDesc = false } = {}){
   const labels = dataset.labels || []
   const values = (dataset.values || []).map(num)
-  const entries = labels.map((label, i)=>({ label, value: values[i]||0 }))
-                        .filter(e=>e.value>0)
+  let entries = labels.map((label, i)=>({ label, value: values[i]||0 }))
+                      .filter(e=>e.value>0)
+  if (sortDesc) entries = entries.slice().sort((a,b)=>b.value-a.value)
   const cols = colorsFor(entries.length)
   return entries.map((e,i)=>({ ...e, color: cols[i] }))
 }
-const regionEntries = computed(()=>toEntries(regionRaw.value))
+// Hududlar — kamayish tartibida (reyting); yosh va jins tabiiy tartibida.
+const regionEntries = computed(()=>toEntries(regionRaw.value, { sortDesc: true }))
 const ageEntries    = computed(()=>toEntries(ageRaw.value))
 const genderEntries = computed(()=>toEntries(genderRaw.value))
 
@@ -44,52 +101,11 @@ const regionTotal = computed(()=>regionEntries.value.reduce((s,e)=>s+e.value,0))
 const ageTotal    = computed(()=>ageEntries.value.reduce((s,e)=>s+e.value,0))
 const genderTotal = computed(()=>genderEntries.value.reduce((s,e)=>s+e.value,0))
 
-// ---------- CANVAS HANDLING ----------
-const canvasMap = new Map()
-const setCanvasRef = (key)=>(el)=>{ if(el) canvasMap.set(key, el) }
-const getCanvas = (el)=>{
-  const c = unref(el)
-  if (c instanceof HTMLCanvasElement) return c
-  if (c?.$el instanceof HTMLCanvasElement) return c.$el
-  return null
-}
-let regionChart=null, ageChart=null, genderChart=null
-
-function drawPie(el, entries, old){
-  if(old) old.destroy()
-  const canvas = getCanvas(el)
-  if(!canvas || !entries?.length) return null
-  const ctx = canvas.getContext('2d'); if(!ctx) return null
-  return new Chart(ctx, {
-    type: 'pie',
-    data: {
-      labels: entries.map(e=>e.label),
-      datasets: [{
-        data: entries.map(e=>e.value),
-        backgroundColor: entries.map(e=>e.color),
-        borderColor:'#fff', borderWidth:2, hoverOffset:8
-      }]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false, animation:{duration:300},
-      plugins:{ legend:{display:false}, tooltip:{ callbacks:{
-        label:(ctx)=>{
-          const ds = ctx.chart.data.datasets[0]?.data ?? []
-          const tot = ds.reduce((s,v)=>s+num(v),0)
-          const val = num(ctx.parsed)
-          const pct = tot?((val/tot)*100).toFixed(1):'0.0'
-          return `${ctx.label}: ${fmtN(val)} (${pct}%)`
-        }
-      }}}
-    }
-  })
-}
-
 // ---------- SECTION COMPOSITION ----------
 const sections = computed(()=>[
-  { key:'region', title:'Hududlar kesimida', total:regionTotal.value, entries:regionEntries.value, legendTop:false },
-  { key:'age',    title:'Yosh kesimida',     total:ageTotal.value,    entries:ageEntries.value,    legendTop:true  },
-  { key:'gender', title:'Jins kesimida',     total:genderTotal.value, entries:genderEntries.value, legendTop:true  },
+  { key:'region', title:'Hududlar kesimida (reyting)', total:regionTotal.value, entries:regionEntries.value },
+  { key:'age',    title:'Yosh kesimida',               total:ageTotal.value,    entries:ageEntries.value },
+  { key:'gender', title:'Jins kesimida',               total:genderTotal.value, entries:genderEntries.value },
 ])
 
 // ---------- LOAD ----------
@@ -99,17 +115,16 @@ async function loadData(){
   try{
     const { data } = await api.get('/dashboard/statistic')
     const s = data ?? {}
-    console.log('Dashboard stats:', s)
     // Regions
     const rs = Array.isArray(s.byRegion) ? s.byRegion : []
     regionRaw.value = {
-      labels: rs.map(r=>r.region ?? r.region_name ?? r.name ?? 'Nomaʼlum'),
+      labels: rs.map(r=>normalizeRegionLabel(r.region ?? r.region_name ?? r.name)),
       values: rs.map(r=>num(r.cnt ?? r.count ?? r.total))
     }
     // Age
     const as = Array.isArray(s.byAge) ? s.byAge : []
     ageRaw.value = {
-      labels: as.map(a=>a.age_range ?? a.label ?? 'Nomaʼlum'),
+      labels: as.map(a=>normalizeAgeLabel(a.age_range ?? a.label)),
       values: as.map(a=>num(a.count ?? a.cnt ?? a.total))
     }
     // Gender
@@ -124,97 +139,74 @@ async function loadData(){
     })
     genderRaw.value = { labels:gL, values:gV }
 
-    // Overview (ixtiyoriy)
+    // Overview — 4 ta karta uchun 8 ta ko'rsatkich
     const ov = s.stats ?? {}
     overviewStats.value = {
-      usersTotal:      num(ov.usersActive ?? ov.users_total ?? ov.totalUsers ?? ov.users),
-      revenueMonthNet: num(ov.revenueThisMonth ?? ov.revenue_month_net ?? ov.monthRevenue ?? ov.revenue ?? ov.totalRevenue),
-      contractsTotal:  num(ov.contractsTotal ?? ov.contracts_total ?? ov.totalContracts),
-      contractsToday:  num(ov.contractsToday ?? ov.contracts_today ?? ov.todayContracts),
+      usersRegistered:          num(ov.usersRegistered ?? ov.users_registered),
+      usersRegisteredThisMonth: num(ov.usersRegisteredThisMonth ?? ov.users_registered_this_month),
+      usersActive:              num(ov.usersActive ?? ov.users_active),
+      usersActiveThisMonth:     num(ov.usersActiveThisMonth ?? ov.users_active_this_month),
+      contractsTotal:           num(ov.contractsTotal ?? ov.contracts_total),
+      contractsThisMonth:       num(ov.contractsThisMonth ?? ov.contracts_this_month),
+      revenueTotal:             num(ov.revenueTotal ?? ov.revenue_total),
+      revenueThisMonth:         num(ov.revenueThisMonth ?? ov.revenue_this_month),
     }
   }catch(e){
-    console.error(e); pieError.value='Maʼlumotlarni yuklashda xatolik yuz berdi.'
+    pieError.value='Maʼlumotlarni yuklashda xatolik yuz berdi.'
     regionRaw.value=ageRaw.value=genderRaw.value={labels:[],values:[]}
   }finally{
     pieLoading.value=false
-    await nextTick()
-    regionChart = drawPie(canvasMap.get('region'), regionEntries.value, regionChart)
-    ageChart    = drawPie(canvasMap.get('age'),    ageEntries.value,    ageChart)
-    genderChart = drawPie(canvasMap.get('gender'), genderEntries.value, genderChart)
   }
 }
 
-// ---------- RESIZE ----------
-let ro
-onMounted(async ()=>{
-  await loadData()
-  ro = new ResizeObserver(async ()=>{
-    await nextTick()
-    regionChart = drawPie(canvasMap.get('region'), regionEntries.value, regionChart)
-    ageChart    = drawPie(canvasMap.get('age'),    ageEntries.value,    ageChart)
-    genderChart = drawPie(canvasMap.get('gender'), genderEntries.value, genderChart)
-  })
-  ;['region','age','gender'].forEach(k=>{
-    const el = canvasMap.get(k)
-    if(el?.parentElement) ro.observe(el.parentElement)
-  })
-})
-onBeforeUnmount(()=>{ regionChart?.destroy(); ageChart?.destroy(); genderChart?.destroy(); ro?.disconnect() })
+onMounted(loadData)
 </script>
 
 <template>
   <div class="space-y-6">
-    <!-- 4 top stats -->
+    <!-- 4 top stats — har biri: asosiy son + "shundan bu oyda" sub-qiymat -->
     <div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-      <div v-for="s in topStats" :key="s.key" class="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div
+        v-for="s in topStats"
+        :key="s.key"
+        class="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+      >
         <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0', s.tint]">
           <fa :icon="s.icon" />
         </div>
-        <div>
+        <div class="min-w-0 flex-1">
           <div class="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">{{ s.label }}</div>
-          <div class="mt-1 text-2xl font-bold text-slate-800">{{ s.value }}</div>
+          <div class="mt-1 text-2xl font-bold text-slate-800 truncate">{{ s.value }}</div>
+          <div class="mt-1 text-xs font-medium text-slate-500 truncate">{{ s.sub }}</div>
         </div>
       </div>
     </div>
 
-    <!-- 3 charts -->
+    <!-- 3 ma'lumot bloklari (diagrammasiz, reyting ko'rinishida) -->
     <div class="grid gap-6 xl:grid-cols-3">
       <div v-for="sec in sections" :key="sec.key" class="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-
-      
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h3 class="text-base font-semibold text-slate-800">{{ sec.title }}</h3>
-          </div>
+        <div class="flex items-center justify-between gap-4">
+          <h3 class="text-base font-semibold text-slate-800">{{ sec.title }}</h3>
+          <span class="text-xs font-semibold text-slate-500">Jami: {{ fmtN(sec.total) }}</span>
         </div>
 
-        <div class="mt-6 flex  flex-col gap-5">
-          <!-- Pie -->
-          <div class="flex-1">
-            <div v-if="pieLoading" class="flex h-[360px] items-center justify-center">Yuklanmoqda…</div>
-            <div v-else-if="pieError" class="flex h-[360px] items-center justify-center text-rose-500 text-sm">{{ pieError }}</div>
-            <div v-else-if="!sec.entries.length" class="flex h-[360px] items-center justify-center rounded-2xl border border-dashed border-slate-200 text-sm text-slate-400">
-              Maʼlumot mavjud emas
-            </div>
-            <div v-else class="relative h-[360px] w-full overflow-hidden rounded-2xl bg-slate-50 p-4 shadow-inner">
-              <canvas :ref="setCanvasRef(sec.key)"></canvas>
-            </div>
-          </div>
+        <div class="mt-4 rounded-2xl border border-slate-100 bg-white/70 p-4">
+          <h4 class="text-sm font-semibold text-slate-700">Maʼlumotlar</h4>
 
-          <!-- Ma'lumotlar: region pastda -->
-          <div class="rounded-2xl border border-slate-100 bg-white/70 p-5 shadow-sm">
-            <div class="flex items-center justify-between">
-              <h4 class="text-sm font-semibold text-slate-700">Maʼlumotlar</h4>
+          <div v-if="pieLoading" class="mt-3 text-sm text-slate-400">Yuklanmoqda…</div>
+          <div v-else-if="pieError" class="mt-3 text-sm text-rose-500">{{ pieError }}</div>
 
-            </div>
-            <ul v-if="sec.entries.length" class="mt-3 space-y-1.5 text-sm">
-              <li v-for="e in sec.entries" :key="e.label" class="flex items-center gap-2 text-slate-700">
-                <span class="inline-block h-2.5 w-2.5 rounded-full" :style="{ backgroundColor: e.color }"></span>
-                <span class="truncate">{{ e.label }} — {{ fmtN(e.value) }}</span>
-              </li>
-            </ul>
-            <div v-else class="mt-3 text-sm text-slate-400">Maʼlumot mavjud emas</div>
-          </div>
+          <ul v-else-if="sec.entries.length" class="mt-3 divide-y divide-slate-100 text-sm">
+            <li v-for="e in sec.entries" :key="e.label" class="flex items-center justify-between gap-3 py-1.5">
+              <span class="flex items-center gap-2 text-slate-700 min-w-0">
+                <span class="inline-block h-2.5 w-2.5 rounded-full shrink-0" :style="{ backgroundColor: e.color }"></span>
+                <span class="truncate">{{ e.label }}</span>
+              </span>
+              <span class="font-semibold text-slate-900 tabular-nums shrink-0">{{ fmtN(e.value) }}</span>
+            </li>
+          </ul>
+
+          <div v-else class="mt-3 text-sm text-slate-400">Maʼlumot mavjud emas</div>
         </div>
       </div>
     </div>

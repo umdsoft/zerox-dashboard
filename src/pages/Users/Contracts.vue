@@ -350,6 +350,26 @@ onMounted(load)
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="8" fill="#3182CE"/></svg>
         </div>
       </RouterLink>
+
+      <RouterLink
+        :to="`/users/${user.uid}/reports/ex-debitor`"
+        class="flex justify-between items-center w-full rounded-xl p-4 bg-white shadow-sm"
+      >
+        <div><h1 class="text-xl text-slate-700">Muddati o‘tgan (debitor)</h1></div>
+        <div class="opacity-80">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="8" fill="#E53E3E"/></svg>
+        </div>
+      </RouterLink>
+
+      <RouterLink
+        :to="`/users/${user.uid}/reports/ex-creditor`"
+        class="flex justify-between items-center w-full rounded-xl p-4 bg-white shadow-sm"
+      >
+        <div><h1 class="text-xl text-slate-700">Muddati o‘tgan (kreditor)</h1></div>
+        <div class="opacity-80">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="8" fill="#E53E3E"/></svg>
+        </div>
+      </RouterLink>
     </div>
   </div>
 

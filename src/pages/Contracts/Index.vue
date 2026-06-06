@@ -45,27 +45,34 @@ function fmtAmount(amount, currency) {
   return `${withSpaces} ${cur}`
 }
 
-// Status badge
+// Status badge — kod (0..4) va matnli sinonimlar uchun yagona, izchil jadval.
+// Avval class/label funksiyalari bir-biriga zid mapping ishlatardi (masalan,
+// 'tugallangan' bir joyda yashil, boshqasida "Tasdiqlanmagan" bo'lardi).
+const STATUS_MAP = {
+  '0': { label: 'Tasdiqlanmagan', cls: 'bg-gray-100 text-gray-700 border border-gray-200' },
+  '1': { label: 'Jarayonda',      cls: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
+  '2': { label: 'Tugallangan',    cls: 'bg-amber-100 text-amber-700 border border-amber-200' },
+  '3': { label: 'Rad qilingan',   cls: 'bg-rose-100 text-rose-700 border border-rose-200' },
+  '4': { label: 'Rad qilingan',   cls: 'bg-rose-100 text-rose-700 border border-rose-200' },
+}
+const STATUS_ALIASES = {
+  tasdiqlanmagan: '0',
+  jarayonda: '1', progress: '1', pending: '1',
+  tugallangan: '2', done: '2', completed: '2',
+  'rad qilingan': '3', rejected: '3', cancelled: '3',
+}
+function statusKey(val) {
+  const v = String(val ?? '').toLowerCase().trim()
+  if (STATUS_MAP[v]) return v
+  return STATUS_ALIASES[v] ?? null
+}
 function statusClass(val) {
-  const v = String(val ?? '').toLowerCase()
-  if (v === '1' || v === 'done' || v === 'completed' || v === 'jarayonda')
-    return 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-  if (v === '2' || v === 'pending' || v === 'progress' || v === 'tugallangan')
-    return 'bg-amber-100 text-amber-700 border border-amber-200'
-  if (v === '3' || v === 'rejected' || v === 'cancelled' || v === 'rad qilingan')
-    return 'bg-rose-100 text-rose-700 border border-rose-200'
-    if (v === '4' || v === 'rejected' || v === 'cancelled' || v === 'rad qilingan')
-    return 'bg-rose-100 text-rose-700 border border-rose-200'
-  return 'bg-gray-100 text-gray-700 border border-gray-200'
+  const k = statusKey(val)
+  return k ? STATUS_MAP[k].cls : 'bg-gray-100 text-gray-700 border border-gray-200'
 }
 function statusLabel(val) {
-  const v = String(val ?? '').toLowerCase()
-  if (v === '0' || v === 'done' || v === 'completed' || v === 'tugallangan') return 'Tasdiqlanmagan'
-  if (v === '1' || v === 'done' || v === 'completed' || v === 'tugallangan') return 'Jarayonda'
-  if (v === '2' || v === 'pending' || v === 'progress' || v === 'jarayonda') return 'Tugallangan'
-  if (v === '3' || v === 'rejected' || v === 'cancelled' || v === 'rad qilingan') return 'Rad qilingan'
-  if (v === '4' || v === 'rejected' || v === 'cancelled' || v === 'rad qilingan') return 'Rad qilingan'
-  return val ?? '—'
+  const k = statusKey(val)
+  return k ? STATUS_MAP[k].label : (val ?? '—')
 }
 
 // Backend javobini aqlli normalize qilish (rows/total/per/current)

@@ -7,10 +7,16 @@ import './styles/index.css';
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 // fa-free-solid’dan F R E E ikonlar
-import { faUsers, faWallet, faFileInvoice, faCalendarDays } from '@fortawesome/free-solid-svg-icons'
+import {
+  faUsers, faWallet, faFileInvoice, faCalendarDays,
+  faPlus, faPen, faTrash
+} from '@fortawesome/free-solid-svg-icons'
 
 // kerakli ikonlarni kutubxonaga qo‘shamiz
-library.add(faUsers, faWallet, faFileInvoice, faCalendarDays)
+library.add(
+  faUsers, faWallet, faFileInvoice, faCalendarDays,
+  faPlus, faPen, faTrash
+)
 
 const app = createApp(App);
 

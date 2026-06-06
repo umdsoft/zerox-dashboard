@@ -13,6 +13,8 @@ import CreditorHistory from '../pages/Users/contracts/creditor.vue'
 import DebitoHistory from '../pages/Users/contracts/debitor.vue';
 import CreditorHistoryR from '../pages/Users/contracts/creditor-history.vue'
 import DebitorHistoryR from '../pages/Users/contracts/debitor-history.vue'
+import ExCreditor from '../pages/Users/contracts/ex-creditor.vue'
+import ExDebitor from '../pages/Users/contracts/ex-debitor.vue'
 import UserLogins from '../pages/Users/LoginArchive.vue'
 const router = createRouter({
   history: createWebHistory(),
@@ -74,6 +76,18 @@ const router = createRouter({
           path: 'users/:id/reports/debitor',
           name: 'users-debitor-report',
           component: DebitoHistory,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'users/:id/reports/ex-creditor',
+          name: 'users-ex-creditor-report',
+          component: ExCreditor,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'users/:id/reports/ex-debitor',
+          name: 'users-ex-debitor-report',
+          component: ExDebitor,
           meta: { requiresAuth: true }
         },
         {

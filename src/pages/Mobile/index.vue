@@ -50,7 +50,7 @@ function normalize(res) {
 async function loadList() {
   loading.value = true
   try {
-    const res = await api.get('version/for-admin', {
+    const res = await api.get('/version/for-admin', {
       params: {
         page: page.value,
         limit: limit.value,
@@ -123,10 +123,10 @@ async function save() {
       return Swal.fire('Ogohlantirish', "Iltimos, barcha maydonlarni to'ldiring.", 'warning')
     }
     if (method.value === 'add') {
-      await api.post('version/create', payload)
+      await api.post('/version/create', payload)
       Swal.fire("Qo'shildi!", 'Yangi versiya qo‘shildi.', 'success')
     } else {
-      await api.put(`version/${editId.value}`, payload)
+      await api.put(`/version/${editId.value}`, payload)
       Swal.fire('Yangilandi!', 'Versiya yangilandi.', 'success')
     }
     closeForm()
@@ -141,7 +141,7 @@ async function save() {
 function confirmDelete(id){ editId.value = id; isDeleteModalActive.value = true }
 async function executeDelete(){
   try {
-    await api.delete(`version/${editId.value}`)
+    await api.delete(`/version/${editId.value}`)
     Swal.fire("O'chirildi!", "Ma'lumot o'chirildi.", 'success')
     isDeleteModalActive.value = false
     await loadList()
