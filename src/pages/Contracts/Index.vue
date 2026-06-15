@@ -7,6 +7,10 @@ import api from '../../lib/axios'
 const loading = ref(false)
 const contracts = ref([])
 
+// Qidiruv / filtr (Foydalanuvchilar bo'limidagi kabi)
+const search = ref('')
+const statusFilter = ref('') // '' = barchasi; '1','2','0','3,4' = holat
+
 // Pagination: select yo‘q, default 15
 const page = ref(1)
 const limit = ref(10)
@@ -14,14 +18,14 @@ const total = ref(0)
 
 // Ustunlar — sen bergan tartibda
 const columns = [
-  { label: 'QARZ SHARTNOMASI RAQAMI', key: 'contract_no' },  // clickable → /contracts/:id
-  { label: 'QARZ BERUVCHI', key: 'debitor_full_name' },
-  { label: 'QARZ BERUVCHINING ID RAQAMI', key: 'debitor_id' },
-  { label: 'QARZ OLUVCHI', key: 'creditor_full_name' },      // chapda qoladi
-  { label: 'QARZ OLUVCINING ID RAQAMI', key: 'creditor_id' },
-  { label: 'QARZ MIQDORI', key: 'amount_fmt' },             // 1 000 000 + currency
-  { label: 'QARZNI QAYTARISH SANASI', key: 'return_date_fmt' },        // dd.MM.yyyy
-  { label: 'HOLAT', key: 'status' },                 // badge
+  { label: 'Qarz shartnomasi raqami', key: 'contract_no' },  // clickable → /contracts/:id
+  { label: 'Qarz beruvchi', key: 'debitor_full_name' },
+  { label: 'Qarz beruvchining ID raqami', key: 'debitor_id' },
+  { label: 'Qarz oluvchi', key: 'creditor_full_name' },      // chapda qoladi
+  { label: 'Qarz oluvchining ID raqami', key: 'creditor_id' },
+  { label: 'Qarz miqdori', key: 'amount_fmt' },             // 1 000 000 + currency
+  { label: 'Qarzni qaytarish sanasi', key: 'return_date_fmt' },        // dd.MM.yyyy
+  { label: 'Holat', key: 'status' },                 // badge
 ]
 
 // ---------- helpers ----------
@@ -167,6 +171,8 @@ async function loadContracts() {
         page: page.value,
         limit: limit.value,
         per_page: limit.value, // ayrim backendlar shuni kutadi
+        search: search.value || undefined,
+        status: statusFilter.value !== '' ? statusFilter.value : undefined,
       },
     })
     const { rows, total: t, perPage: per, currentPage: cur } = normalizeResponse(res)
@@ -182,8 +188,23 @@ async function loadContracts() {
   }
 }
 
+const hasActiveFilter = computed(() => Boolean(search.value) || statusFilter.value !== '')
+
+// Qidiruv/filtr o'zgarsa — 1-sahifaga qaytib qayta yuklaymiz (qo'sh so'rovsiz)
+function resetAndLoad() {
+  if (page.value !== 1) page.value = 1 // page watcher loadContracts ni chaqiradi
+  else loadContracts()
+}
+let searchTimer = null
+watch(search, () => { clearTimeout(searchTimer); searchTimer = setTimeout(resetAndLoad, 400) })
+watch(statusFilter, resetAndLoad)
 watch([page, limit], loadContracts)
 onMounted(loadContracts)
+
+function clearFilters() {
+  search.value = ''
+  statusFilter.value = ''
+}
 
 // Pagination tugmalari
 function nextPage() { if (canNext.value) page.value += 1 }
@@ -197,6 +218,43 @@ function prevPage() { if (canPrev.value) page.value -= 1 }
         <h1 class="text-2xl font-semibold text-slate-800">Qarz shartnomalari</h1>
         <p class="text-sm text-slate-500">Foydalanuvchilar tomonidan imzolangan shartnomalar.</p>
       </div>
+    </div>
+
+    <!-- Qidiruv va filtr paneli -->
+    <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+      <div class="relative flex-1">
+        <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+          </svg>
+        </span>
+        <input
+          v-model="search"
+          type="text"
+          placeholder="Shartnoma raqami, F.I.O yoki ID bo‘yicha qidirish…"
+          class="block w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+        />
+      </div>
+
+      <select
+        v-model="statusFilter"
+        class="min-w-[180px] rounded-xl border border-slate-200 bg-white py-2.5 pl-3 pr-9 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+      >
+        <option value="">Barcha holat</option>
+        <option value="1">Jarayonda</option>
+        <option value="2">Tugallangan</option>
+        <option value="3,4">Rad qilingan</option>
+        <option value="0">Tasdiqlanmagan</option>
+      </select>
+
+      <button
+        v-if="hasActiveFilter"
+        type="button"
+        class="rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-100"
+        @click="clearFilters"
+      >
+        Tozalash
+      </button>
     </div>
 
     <DataTable :columns="columns" :rows="rowsForTable" :loading="loading" download-filename="contracts.xlsx"

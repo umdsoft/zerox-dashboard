@@ -160,13 +160,17 @@ const rowsForTable = computed(() => {
   }
   if (tab.value === 'withdraw') {
     return list.map(it => {
-      const name = Number(it.dtype) === 1 ? (it.company ?? '') : (it.sname ?? '')
+      // FISH: identifikatsiyadan o'tmagan userda bo'sh bo'ladi → "—"
+      const rawName = (Number(it.dtype) === 1 ? it.company : it.sname) || ''
+      const name = String(rawName).trim() || '—'
       return {
         ...it,
         name,
         sid: it.sid ?? '',
         amount_fmt: fmtAmount(it.amount),
-        number: it.number ?? '—',
+        // Tarif yechimlarida backend bu yerga tarif nomini (Start/Premium tarifi) qaytaradi;
+        // shartnoma yechimlarida — shartnoma raqamini.
+        number: (it.number != null && String(it.number).trim() !== '') ? it.number : '—',
         date_fmt: fmtDate(it.created_at),
         time_fmt: it.time || fmtTime(it.created_at),
         status: 'Tugallangan',
