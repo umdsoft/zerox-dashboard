@@ -101,37 +101,37 @@ function normalizeResponse(res) {
 const columns = computed(() => {
   if (tab.value === 'income') {
     return [
-      { label: 'FOYDALANUVCHI ID', key: 'sid' },
-      { label: 'FOYDALANUVCHI', key: 'sname' },
-      { label: "TO'LOV TIZIMI", key: 'pay' },
-      { label: "TO'LOV SUMMASI", key: 'amount_fmt' }, // +/-
-      { label: "TO'LOV SANASI", key: 'pay_date_fmt' },
-      { label: "TO'LOV VAQTI", key: 'pay_time_fmt' },
-      { label: 'BEKOR QILINGAN VAQT', key: 'cancel_dt_fmt' },
+      { label: 'Foydalanuvchi ID', key: 'sid' },
+      { label: 'Foydalanuvchi', key: 'sname' },
+      { label: "To'lov tizimi", key: 'pay' },
+      { label: "To'lov summasi", key: 'amount_fmt' }, // +/-
+      { label: "To'lov sanasi", key: 'pay_date_fmt' },
+      { label: "To'lov vaqti", key: 'pay_time_fmt' },
+      { label: 'Bekor qilingan vaqt', key: 'cancel_dt_fmt' },
       { label: '', key: 'actions' },
     ]
   }
   if (tab.value === 'withdraw') {
     return [
-      { label: 'FISh / KOMPANIYA', key: 'name' },
+      { label: 'F.I.Sh / kompaniya', key: 'name' },
       { label: 'ID', key: 'sid' },
-      { label: "SUMMA (UZS)", key: 'amount_fmt' },
-      { label: 'SHARTNOMA №', key: 'number' },
-      { label: 'SANA', key: 'date_fmt' },
-      { label: 'VAQT', key: 'time_fmt' },
-      { label: 'HOLAT', key: 'status' },
+      { label: "Summa (UZS)", key: 'amount_fmt' },
+      { label: 'Shartnoma №', key: 'number' },
+      { label: 'Sana', key: 'date_fmt' },
+      { label: 'Vaqt', key: 'time_fmt' },
+      { label: 'Holat', key: 'status' },
     ]
   }
   // p2p
   return [
-    { label: 'YUBORUVCHI', key: 'sname' },
-    { label: 'YUBORUVCHI ID', key: 'sid' },
-    { label: 'QABUL QILUVCHI', key: 'rname' },
-    { label: 'QABUL QILUVCHI ID', key: 'rid' },
-    { label: 'O‘TKAZMA SUMMASI (UZS)', key: 'amount_fmt' },
-    { label: 'SANA', key: 'date_fmt' },
-    { label: 'VAQT', key: 'time_fmt' },
-    { label: 'HOLAT', key: 'status' },
+    { label: 'Yuboruvchi', key: 'sname' },
+    { label: 'Yuboruvchi ID', key: 'sid' },
+    { label: 'Qabul qiluvchi', key: 'rname' },
+    { label: 'Qabul qiluvchi ID', key: 'rid' },
+    { label: 'O‘tkazma summasi (UZS)', key: 'amount_fmt' },
+    { label: 'Sana', key: 'date_fmt' },
+    { label: 'Vaqt', key: 'time_fmt' },
+    { label: 'Holat', key: 'status' },
   ]
 })
 

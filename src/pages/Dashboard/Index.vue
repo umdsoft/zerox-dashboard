@@ -19,6 +19,18 @@ const nf = new Intl.NumberFormat('ru-RU')
 const fmtN = (v) => nf.format(v ?? 0)
 const fmtC = (v) => `${fmtN(v)} UZS`
 
+// Pulni qisqartirilgan ko'rinishda — ming / mln / mlrd (masalan: 164,6 ming, 10 mln, 2,5 mlrd UZS).
+// 1000 dan kichik bo'lsa to'liq son ko'rsatiladi.
+function fmtMoneyCompact(v) {
+  const n = Number(v ?? 0)
+  const abs = Math.abs(n)
+  const oneDec = (x) => (Math.round(x * 10) / 10).toString().replace('.', ',')
+  if (abs >= 1e9) return `${oneDec(n / 1e9)} mlrd UZS`
+  if (abs >= 1e6) return `${oneDec(n / 1e6)} mln UZS`
+  if (abs >= 1e3) return `${oneDec(n / 1e3)} ming UZS`
+  return `${fmtN(n)} UZS`
+}
+
 const topStats = computed(() => ([
   {
     key: 'users_registered',
@@ -47,8 +59,8 @@ const topStats = computed(() => ([
   {
     key: 'revenue_total',
     label: 'Jami tushum',
-    value: fmtC(overviewStats.value.revenueTotal),
-    sub: `Shundan bu oyda: ${fmtC(overviewStats.value.revenueThisMonth)}`,
+    value: fmtMoneyCompact(overviewStats.value.revenueTotal),
+    sub: `Shundan bu oyda: ${fmtMoneyCompact(overviewStats.value.revenueThisMonth)}`,
     icon: 'wallet',
     tint: 'bg-amber-100 text-amber-600',
   },
@@ -75,6 +87,8 @@ function normalizeRegionLabel(label){
 // Yosh oralig'ini tushunarli ko'rinishga keltiramiz ("18 - 25" -> "18–25 yosh").
 function normalizeAgeLabel(label){
   const s = String(label ?? '').trim()
+  // Tug'ilgan sanasi kiritilmagan foydalanuvchilar (backend "Not Filled In (NULL)" qaytaradi)
+  if (/not\s*filled|null|nan/i.test(s)) return 'Tug‘ilgan sana kiritilmagan'
   if (/^under\s*\d+/i.test(s))  return s.replace(/^under\s*(\d+)/i, '$1 yoshgacha')
   if (/^over\s*\d+/i.test(s))   return s.replace(/^over\s*(\d+)/i, '$1 yoshdan yuqori')
   const m = s.match(/^(\d+)\s*-\s*(\d+)$/)
@@ -175,7 +189,7 @@ onMounted(loadData)
           <fa :icon="s.icon" />
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">{{ s.label }}</div>
+          <div class="text-[11px] tracking-wide text-slate-400 font-semibold">{{ s.label }}</div>
           <div class="mt-1 text-2xl font-bold text-slate-800 truncate">{{ s.value }}</div>
           <div class="mt-1 text-xs font-medium text-slate-500 truncate">{{ s.sub }}</div>
         </div>

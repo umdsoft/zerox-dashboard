@@ -84,7 +84,7 @@ const handleExport = async () => {
               v-for="column in props.columns"
               :key="column.key || column.label"
               scope="col"
-              class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
+              class="px-6 py-3 text-left text-xs font-semibold tracking-wider text-slate-500"
             >
               {{ column.label }}
             </th>

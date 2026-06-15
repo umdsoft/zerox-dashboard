@@ -97,7 +97,7 @@ function normalizeAct(a) {
   return {
     id: a.id ?? a._id ?? a.uid,
     type: a.type ?? a.doc_type ?? a.documentType ?? a.act_type,
-    created_at: a.created_at ?? a.createdAt ?? a.date ?? a.created,
+    created_at: a.created_at ?? a.createdAt ?? a.create_time ?? a.approved_time ?? a.date ?? a.created,
     refundable_amount: a.refundable_amount ?? a.refund_amount ?? a.returned_amount ?? a.paid_amount ?? 0,
     vos_summa: a.vos_summa ?? a.voz_summa ?? a.waived_amount ?? a.vos_amount ?? 0,
     residual_amount: a.residual_amount ?? a.remain ?? a.remainder ?? a.qoldiq ?? 0,

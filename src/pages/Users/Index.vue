@@ -90,16 +90,18 @@ function normalizeUsersResponse(res) {
   return { rows, total: t, perPage: per || limit.value, currentPage: current || page.value, lastPage: last }
 }
 
-// dd.MM.yyyy
+// dd.MM.yyyy — "YYYY-MM-DD" (tug'ilgan sana) va ISO sanalarni TZ siljishisiz formatlaydi
 function fmtDate(val) {
   if (!val) return ''
-  if (/^\d{2}\.\d{2}\.\d{4}$/.test(val)) return val
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(val)) return val // allaqachon DD.MM.YYYY
+  // YYYY-MM-DD yoki YYYY-MM-DDT... — to'g'ridan-to'g'ri ajratamiz (new Date TZ siljishini oldini olamiz)
+  const m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) return `${m[3]}.${m[2]}.${m[1]}`
   const d = new Date(val)
   if (isNaN(d.getTime())) return ''
   const dd = String(d.getDate()).padStart(2, '0')
   const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yyyy = d.getFullYear()
-  return `${dd}.${mm}.${yyyy}`
+  return `${dd}.${mm}.${d.getFullYear()}`
 }
 
 // Derivatsiya qilingan satrlar
@@ -108,6 +110,7 @@ const rowsForTable = computed(() => {
   return (users.value || []).map((u, idx) => ({
     ...u,
     _seq: start + idx + 1,
+    brithday_fmt: fmtDate(u?.brithday),
     created_at_fmt: fmtDate(u?.created_at),
     contract_date_fmt: fmtDate(u?.contract_date),
   }))
@@ -212,7 +215,7 @@ async function exportAllUsers() {
       '№': idx + 1,
       'ID raqami': u.uid ?? '',
       'F.I.O': u.full_name ?? '',
-      'Tug‘ilgan sanasi': u.brithday ?? '',
+      'Tug‘ilgan sanasi': fmtDate(u.brithday),
       'Ro‘yxatdan o‘tgan sanasi': fmtDate(u.created_at),
       'Telefon raqami': u.phone ?? '',
       'JSHSHIR': u.pinfl ?? '',
@@ -259,7 +262,7 @@ async function exportAllUsers() {
 
       <select
         v-model="statusFilter"
-        class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+        class="min-w-[180px] rounded-xl border border-slate-200 bg-white py-2.5 pl-3 pr-9 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
       >
         <option value="">Barcha holat</option>
         <option value="1">Tasdiqlangan</option>
@@ -304,7 +307,7 @@ async function exportAllUsers() {
       </template>
 
       <!-- Center qilinadigan kataklar -->
-      <template #cell-brithday="{ row }"><div class="text-center">{{ row.brithday }}</div></template>
+      <template #cell-brithday="{ row }"><div class="text-center">{{ row.brithday_fmt }}</div></template>
       <template #cell-created_at_fmt="{ row }"><div class="text-center">{{ row.created_at_fmt }}</div></template>
       <template #cell-phone="{ row }"><div class="text-center">{{ row.phone }}</div></template>
       <template #cell-pinfl="{ row }"><div class="text-center">{{ row.pinfl }}</div></template>
