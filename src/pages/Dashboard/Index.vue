@@ -71,6 +71,21 @@ const regionRaw = ref({ labels: [], values: [] })
 const ageRaw    = ref({ labels: [], values: [] })
 const genderRaw = ref({ labels: [], values: [] })
 
+// Qarz daftari umumiy summalari (valyuta kesimida)
+const qarzDaftari = ref({
+  UZS: { soni: 0, berilgan: 0, qaytarilgan: 0, qoldiq: 0 },
+  USD: { soni: 0, berilgan: 0, qaytarilgan: 0, qoldiq: 0 },
+})
+// UZS doim ko'rsatiladi; USD faqat ma'lumot bo'lsa
+const qdCards = computed(() => {
+  const out = []
+  for (const cur of ['UZS', 'USD']) {
+    const d = qarzDaftari.value?.[cur]
+    if (d && (Number(d.soni) > 0 || cur === 'UZS')) out.push({ cur, ...d })
+  }
+  return out
+})
+
 const num = (v)=>Number.isFinite(Number(v))?Number(v):0
 
 // ---------- COLOR PALETTE ----------
@@ -165,6 +180,14 @@ async function loadData(){
       revenueTotal:             num(ov.revenueTotal ?? ov.revenue_total),
       revenueThisMonth:         num(ov.revenueThisMonth ?? ov.revenue_this_month),
     }
+
+    // Qarz daftari umumiy summalari
+    const qd = s.qarzDaftari ?? {}
+    const pick = (c) => ({
+      soni: num(c?.soni), berilgan: num(c?.berilgan),
+      qaytarilgan: num(c?.qaytarilgan), qoldiq: num(c?.qoldiq),
+    })
+    qarzDaftari.value = { UZS: pick(qd.UZS), USD: pick(qd.USD) }
   }catch(e){
     pieError.value='Maʼlumotlarni yuklashda xatolik yuz berdi.'
     regionRaw.value=ageRaw.value=genderRaw.value={labels:[],values:[]}
@@ -221,6 +244,38 @@ onMounted(loadData)
           </ul>
 
           <div v-else class="mt-3 text-sm text-slate-400">Maʼlumot mavjud emas</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Qarz daftari — umumiy summalar (valyuta kesimida) -->
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex items-center justify-between gap-4">
+        <h3 class="text-base font-semibold text-slate-800">Qarz daftari (umumiy)</h3>
+        <span class="text-xs font-semibold text-slate-500">Norasmiy qarz qaydnomasi</span>
+      </div>
+
+      <div v-if="pieLoading" class="mt-4 text-sm text-slate-400">Yuklanmoqda…</div>
+      <div v-else class="mt-4 grid gap-4 sm:grid-cols-2">
+        <div v-for="c in qdCards" :key="c.cur" class="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+          <div class="flex items-center justify-between">
+            <span class="inline-flex items-center rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">{{ c.cur }}</span>
+            <span class="text-xs text-slate-500">{{ fmtN(c.soni) }} ta qarz</span>
+          </div>
+          <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div class="text-[11px] text-slate-500">Berilgan</div>
+              <div class="mt-0.5 text-sm font-bold text-slate-800 tabular-nums">{{ fmtN(c.berilgan) }}</div>
+            </div>
+            <div>
+              <div class="text-[11px] text-slate-500">Qaytarilgan</div>
+              <div class="mt-0.5 text-sm font-bold text-emerald-700 tabular-nums">{{ fmtN(c.qaytarilgan) }}</div>
+            </div>
+            <div>
+              <div class="text-[11px] text-slate-500">Qoldiq</div>
+              <div class="mt-0.5 text-sm font-bold text-rose-700 tabular-nums">{{ fmtN(c.qoldiq) }}</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
