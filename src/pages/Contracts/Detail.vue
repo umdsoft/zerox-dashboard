@@ -52,17 +52,32 @@ function statusView(s) {
   return { text: 'Jarayonda', cls: 'bg-slate-200 text-slate-700 border-slate-300' }
 }
 
-// SHARTNOMA (contract) holati — ACT holatidan FARQLI (0..4). Contracts ro'yxati bilan izchil.
+// SHARTNOMA (contract) holati — Contracts ro'yxati (Index.vue) bilan AYNAN bir xil mantiq:
+// raqamli kod (0..4) ham, matnli sinonim (jarayonda/rad qilingan...) ham qo'llab-quvvatlanadi.
+// Bu yerda qo'shimcha `dot`/`accent` (redizayn uchun) ham bor.
 const CONTRACT_STATUS = {
-  0: { label: 'Tasdiqlanmagan', dot: 'bg-slate-400',  badge: 'bg-slate-100 text-slate-700 border-slate-200',     accent: 'from-slate-400 to-slate-500' },
-  1: { label: 'Jarayonda',      dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'from-emerald-400 to-emerald-500' },
-  2: { label: 'Tugallangan',    dot: 'bg-amber-500',  badge: 'bg-amber-100 text-amber-700 border-amber-200',      accent: 'from-amber-400 to-amber-500' },
-  3: { label: 'Rad qilingan',   dot: 'bg-rose-500',   badge: 'bg-rose-100 text-rose-700 border-rose-200',         accent: 'from-rose-400 to-rose-500' },
-  4: { label: 'Rad qilingan',   dot: 'bg-rose-500',   badge: 'bg-rose-100 text-rose-700 border-rose-200',         accent: 'from-rose-400 to-rose-500' },
+  '0': { label: 'Tasdiqlanmagan', dot: 'bg-slate-400',   badge: 'bg-gray-100 text-gray-700 border-gray-200',          accent: 'from-slate-400 to-slate-500' },
+  '1': { label: 'Jarayonda',      dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'from-emerald-400 to-emerald-500' },
+  '2': { label: 'Tugallangan',    dot: 'bg-amber-500',   badge: 'bg-amber-100 text-amber-700 border-amber-200',       accent: 'from-amber-400 to-amber-500' },
+  '3': { label: 'Rad qilingan',   dot: 'bg-rose-500',    badge: 'bg-rose-100 text-rose-700 border-rose-200',          accent: 'from-rose-400 to-rose-500' },
+  '4': { label: 'Rad qilingan',   dot: 'bg-rose-500',    badge: 'bg-rose-100 text-rose-700 border-rose-200',          accent: 'from-rose-400 to-rose-500' },
+}
+const STATUS_ALIASES = {
+  tasdiqlanmagan: '0',
+  jarayonda: '1', progress: '1', pending: '1', active: '1', aktiv: '1',
+  tugallangan: '2', done: '2', completed: '2', 'voz kechilgan': '2', voz_kechilgan: '2', yopilgan: '2',
+  'rad qilingan': '3', rejected: '3', cancelled: '3', canceled: '3',
+}
+function contractStatusKey(val) {
+  const v = String(val ?? '').toLowerCase().trim()
+  if (CONTRACT_STATUS[v]) return v
+  return STATUS_ALIASES[v] ?? null
 }
 const contractStatus = computed(() => {
-  const s = Number(contract.value?.status)
-  return CONTRACT_STATUS[s] || { label: 'Noma’lum', dot: 'bg-slate-400', badge: 'bg-slate-100 text-slate-700 border-slate-200', accent: 'from-slate-300 to-slate-400' }
+  const k = contractStatusKey(contract.value?.status)
+  return k
+    ? CONTRACT_STATUS[k]
+    : { label: '—', dot: 'bg-slate-300', badge: 'bg-slate-100 text-slate-600 border-slate-200', accent: 'from-slate-300 to-slate-400' }
 })
 
 // ------- NORMALIZED GETTERS -------
