@@ -74,7 +74,10 @@ function contractStatusKey(val) {
   return STATUS_ALIASES[v] ?? null
 }
 const contractStatus = computed(() => {
-  const k = contractStatusKey(contract.value?.status)
+  const c = contract.value || {}
+  // Backend turli nomda qaytarishi mumkin — hammasini sinab ko'ramiz
+  const raw = c.status ?? c.holat ?? c.state ?? c.contract_status
+  const k = contractStatusKey(raw)
   return k
     ? CONTRACT_STATUS[k]
     : { label: '—', dot: 'bg-slate-300', badge: 'bg-slate-100 text-slate-600 border-slate-200', accent: 'from-slate-300 to-slate-400' }
@@ -205,12 +208,12 @@ const pdfAllUrl = computed(() => {
 
             <div class="flex flex-col gap-2 sm:flex-row">
               <a :href="pdfUrl" download
-                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700">
+                 class="group inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-150 ease-out hover:bg-emerald-700 hover:shadow-md active:scale-[0.97]">
                 <span class="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold">PDF</span>
                 <span>Shartnomani yuklab olish</span>
               </a>
               <a :href="pdfAllUrl" download
-                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-600 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
+                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-white px-4 py-2.5 text-sm font-medium text-emerald-700 shadow-sm transition-all duration-150 ease-out hover:bg-emerald-50 hover:shadow-md active:scale-[0.97]">
                 <span class="rounded bg-emerald-600/10 px-1.5 py-0.5 text-[10px] font-bold">PDF</span>
                 <span>Barcha hujjatlar</span>
               </a>

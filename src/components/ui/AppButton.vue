@@ -18,11 +18,11 @@ const props = defineProps({
 
 const classes = computed(() => {
   const base =
-    'inline-flex items-center justify-center rounded-xl font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed';
+    'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-150 ease-out active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100';
 
   const variants = {
-    primary: 'bg-indigo-600 text-white hover:bg-indigo-500 focus:ring-indigo-500',
-    secondary: 'bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-400',
+    primary: 'bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 hover:shadow-md focus:ring-indigo-500',
+    secondary: 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 focus:ring-slate-300',
     ghost: 'bg-transparent text-slate-600 hover:bg-slate-100 focus:ring-slate-400'
   };
 

@@ -19,6 +19,26 @@ const navigation = [
 
 const activePath = computed(() => route.name);
 
+// Sahifa sarlavhalari — route nomidan emas, professional o'zbekcha nomlar
+const ROUTE_TITLES = {
+  'dashboard': 'Boshqaruv paneli',
+  'users': 'Foydalanuvchilar',
+  'users-detail': 'Foydalanuvchi tafsiloti',
+  'users-detail-contracts': 'Foydalanuvchi shartnomalari',
+  'users-creditor-history': 'Kreditor shartnomalari tarixi',
+  'users-debitor-history': 'Debitor shartnomalari tarixi',
+  'users-creditor-report': 'Kreditor hisoboti',
+  'users-debitor-report': 'Debitor hisoboti',
+  'users-ex-creditor-report': 'Kreditor (arxiv) hisoboti',
+  'users-ex-debitor-report': 'Debitor (arxiv) hisoboti',
+  'users-logins': 'Kirishlar tarixi',
+  'payments': 'To‘lovlar',
+  'mobile-version': 'Mobil versiya',
+  'contracts': 'Qarz shartnomalari',
+  'contracts-detail': 'Shartnoma tafsiloti',
+};
+const pageTitle = computed(() => ROUTE_TITLES[route.name] || 'ZeroX Admin');
+
 const initials = computed(() => {
   if (!authStore.user?.name) return 'AD';
   return authStore.user.name
@@ -130,7 +150,7 @@ const toggleSidebar = () => {
             </svg>
             Menu
           </button>
-          <h1 class="text-lg font-semibold text-slate-800 capitalize">{{ route.name }}</h1>
+          <h1 class="text-lg font-semibold text-slate-800">{{ pageTitle }}</h1>
         </div>
         <div class="flex items-center gap-3">
           <AppButton variant="secondary" size="sm" @click="handleLogout">Chiqish</AppButton>
