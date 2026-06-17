@@ -83,6 +83,21 @@ const contractStatus = computed(() => {
     : { label: '—', dot: 'bg-slate-300', badge: 'bg-slate-100 text-slate-600 border-slate-200', accent: 'from-slate-300 to-slate-400' }
 })
 
+// Qarzni qaytarish sanasi — odatda shartnomaning OXIRGI (tasdiqlangan) dalolatnomasining
+// end_date'ida shakllanadi (uzaytirish/qisman to'lov bilan o'zgaradi). Avval contract.end_date,
+// bo'lmasa aktlardan: tasdiqlangan (status=1) aktlarni afzal ko'rib, eng oxirgisini olamiz.
+const returnDate = computed(() => {
+  const direct = contract.value?.end_date
+  if (direct) return fmtDate(direct, false)
+
+  const withDate = (acts.value || []).filter((a) => a && a.end_date)
+  if (!withDate.length) return '—'
+  const confirmed = withDate.filter((a) => Number(a.status) === 1)
+  const pool = confirmed.length ? confirmed : withDate
+  const last = pool[pool.length - 1] // aktlar ASC tartibda — oxirgisi eng yangi
+  return last?.end_date ? fmtDate(last.end_date, false) : '—'
+})
+
 // ------- NORMALIZED GETTERS -------
 const contract = computed(() => raw.value?.contract ?? null)
 const acts = computed(() => Array.isArray(raw.value?.acts) ? raw.value.acts : [])
@@ -236,12 +251,12 @@ const pdfAllUrl = computed(() => {
 
             <div class="flex flex-col gap-2 sm:flex-row">
               <a :href="pdfUrl" download
-                 class="group inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-150 ease-out hover:bg-emerald-700 hover:shadow-md active:scale-[0.97]">
+                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/30 active:translate-y-0 active:scale-[0.98]">
                 <span class="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold">PDF</span>
                 <span>Shartnomani yuklab olish</span>
               </a>
               <a :href="pdfAllUrl" download
-                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-white px-4 py-2.5 text-sm font-medium text-emerald-700 shadow-sm transition-all duration-150 ease-out hover:bg-emerald-50 hover:shadow-md active:scale-[0.97]">
+                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-white px-4 py-2.5 text-sm font-medium text-emerald-700 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-emerald-700 hover:bg-emerald-50 hover:shadow-lg hover:shadow-emerald-600/20 active:translate-y-0 active:scale-[0.98]">
                 <span class="rounded bg-emerald-600/10 px-1.5 py-0.5 text-[10px] font-bold">PDF</span>
                 <span>Barcha hujjatlar</span>
               </a>
@@ -270,7 +285,7 @@ const pdfAllUrl = computed(() => {
               <div class="text-xs font-medium text-slate-500">Rasmiylashtirilgan</div>
               <div class="mt-1 text-sm font-semibold text-slate-800">{{ fmtDate(contract.created_at, false) || '—' }}</div>
               <div class="mt-2 text-xs font-medium text-slate-500">Qaytarish sanasi</div>
-              <div class="mt-0.5 text-sm font-semibold text-slate-800">{{ fmtDate(contract.end_date, false) || '—' }}</div>
+              <div class="mt-0.5 text-sm font-semibold text-slate-800">{{ returnDate }}</div>
             </div>
           </div>
         </div>
