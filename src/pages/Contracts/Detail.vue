@@ -44,12 +44,17 @@ const DOC_TYPE_MAP = {
 }
 const typeLabel = (t) => DOC_TYPE_MAP[Number(t)] ?? '—'
 
-// AKT (dalolatnoma) holati: 1=tasdiqlangan, 2=rad, 0=jarayonda
+// AKT (dalolatnoma) holati: 1=tasdiqlangan, 2=rad, 0=jarayonda (icon bilan)
+const STATUS_ICONS = {
+  check: 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',      // check-circle
+  x: 'M9.75 9.75 14.25 14.25m0-4.5L9.75 14.25M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z', // x-circle
+  clock: 'M12 6v6l3.75 2.25M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',              // clock
+}
 function statusView(s) {
   const v = Number(s)
-  if (v === 1) return { text: 'Tasdiqlangan', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' }
-  if (v === 2) return { text: 'Rad qilingan', cls: 'bg-rose-100 text-rose-700 border-rose-200' }
-  return { text: 'Jarayonda', cls: 'bg-slate-200 text-slate-700 border-slate-300' }
+  if (v === 1) return { text: 'Tasdiqlangan', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: STATUS_ICONS.check }
+  if (v === 2) return { text: 'Rad qilingan', cls: 'bg-rose-100 text-rose-700 border-rose-200', icon: STATUS_ICONS.x }
+  return { text: 'Jarayonda', cls: 'bg-slate-200 text-slate-700 border-slate-300', icon: STATUS_ICONS.clock }
 }
 
 // SHARTNOMA (contract) holati — Contracts ro'yxati (Index.vue) bilan AYNAN bir xil mantiq:
@@ -373,8 +378,11 @@ const pdfAllUrl = computed(() => {
               <td class="px-4 py-3 text-center">{{ fmtDate(item.end_date) }}</td>
 
               <td class="px-4 py-3 text-center">
-                <span class="inline-flex items-center rounded border px-2 py-0.5 text-xs font-semibold"
+                <span class="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold"
                       :class="statusView(item.status).cls">
+                  <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" :d="statusView(item.status).icon" />
+                  </svg>
                   {{ statusView(item.status).text }}
                 </span>
               </td>
