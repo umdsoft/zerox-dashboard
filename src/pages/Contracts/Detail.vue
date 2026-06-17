@@ -250,42 +250,71 @@ const pdfAllUrl = computed(() => {
             </div>
 
             <div class="flex flex-col gap-2 sm:flex-row">
+              <!-- !text-white / no-underline — `<a>` visited (binafsha) rangini bloklaydi -->
               <a :href="pdfUrl" download
-                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/30 active:translate-y-0 active:scale-[0.98]">
-                <span class="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold">PDF</span>
+                 class="group inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold !text-white no-underline shadow-sm transition duration-200 hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-600/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:bg-emerald-800">
+                <span class="rounded bg-white/25 px-1.5 py-0.5 text-[10px] font-bold !text-white">PDF</span>
                 <span>Shartnomani yuklab olish</span>
               </a>
               <a :href="pdfAllUrl" download
-                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-white px-4 py-2.5 text-sm font-medium text-emerald-700 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-emerald-700 hover:bg-emerald-50 hover:shadow-lg hover:shadow-emerald-600/20 active:translate-y-0 active:scale-[0.98]">
-                <span class="rounded bg-emerald-600/10 px-1.5 py-0.5 text-[10px] font-bold">PDF</span>
+                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-white px-4 py-2.5 text-sm font-semibold !text-emerald-700 no-underline shadow-sm transition duration-200 hover:border-emerald-700 hover:bg-emerald-50 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:bg-emerald-100">
+                <span class="rounded bg-emerald-600/10 px-1.5 py-0.5 text-[10px] font-bold !text-emerald-700">PDF</span>
                 <span>Barcha hujjatlar</span>
               </a>
             </div>
           </div>
 
-          <!-- Info kartalar grid -->
+          <!-- Info kartalar grid (iconli) -->
           <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <!-- Qarz miqdori (aksent) -->
-            <div class="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
-              <div class="text-xs font-medium text-indigo-500">Qarz miqdori</div>
-              <div class="mt-1 text-xl font-bold text-indigo-700">{{ fmtMoney(contract.amount) }} {{ contract.currency }}</div>
+            <div class="flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-medium text-indigo-500">Qarz miqdori</div>
+                <div class="mt-0.5 text-lg font-bold text-indigo-700">{{ fmtMoney(contract.amount) }} {{ contract.currency }}</div>
+              </div>
             </div>
             <!-- Debitor -->
-            <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-              <div class="text-xs font-medium text-slate-500">Qarz beruvchi (Debitor)</div>
-              <div class="mt-1 text-sm font-semibold text-slate-800 break-words">{{ contract.debitor_name?.trim() || '—' }}</div>
+            <div class="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-medium text-slate-500">Qarz beruvchi (Debitor)</div>
+                <div class="mt-0.5 text-sm font-semibold text-slate-800 break-words">{{ contract.debitor_name?.trim() || '—' }}</div>
+              </div>
             </div>
             <!-- Kreditor -->
-            <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-              <div class="text-xs font-medium text-slate-500">Qarz oluvchi (Kreditor)</div>
-              <div class="mt-1 text-sm font-semibold text-slate-800 break-words">{{ contract.creditor_name?.trim() || '—' }}</div>
+            <div class="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-medium text-slate-500">Qarz oluvchi (Kreditor)</div>
+                <div class="mt-0.5 text-sm font-semibold text-slate-800 break-words">{{ contract.creditor_name?.trim() || '—' }}</div>
+              </div>
             </div>
             <!-- Sanalar -->
-            <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-              <div class="text-xs font-medium text-slate-500">Rasmiylashtirilgan</div>
-              <div class="mt-1 text-sm font-semibold text-slate-800">{{ fmtDate(contract.created_at, false) || '—' }}</div>
-              <div class="mt-2 text-xs font-medium text-slate-500">Qaytarish sanasi</div>
-              <div class="mt-0.5 text-sm font-semibold text-slate-800">{{ returnDate }}</div>
+            <div class="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-medium text-slate-500">Rasmiylashtirilgan</div>
+                <div class="mt-0.5 text-sm font-semibold text-slate-800">{{ fmtDate(contract.created_at, false) || '—' }}</div>
+                <div class="mt-1.5 text-xs font-medium text-slate-500">Qaytarish sanasi</div>
+                <div class="mt-0.5 text-sm font-semibold text-slate-800">{{ returnDate }}</div>
+              </div>
             </div>
           </div>
         </div>
