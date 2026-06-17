@@ -44,13 +44,26 @@ const DOC_TYPE_MAP = {
 }
 const typeLabel = (t) => DOC_TYPE_MAP[Number(t)] ?? '—'
 
-// Status mapping: 1=tasdiqlangan, 2=rad, 0=jarayonda
+// AKT (dalolatnoma) holati: 1=tasdiqlangan, 2=rad, 0=jarayonda
 function statusView(s) {
   const v = Number(s)
   if (v === 1) return { text: 'Tasdiqlangan', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' }
   if (v === 2) return { text: 'Rad qilingan', cls: 'bg-rose-100 text-rose-700 border-rose-200' }
   return { text: 'Jarayonda', cls: 'bg-slate-200 text-slate-700 border-slate-300' }
 }
+
+// SHARTNOMA (contract) holati — ACT holatidan FARQLI (0..4). Contracts ro'yxati bilan izchil.
+const CONTRACT_STATUS = {
+  0: { label: 'Tasdiqlanmagan', dot: 'bg-slate-400',  badge: 'bg-slate-100 text-slate-700 border-slate-200',     accent: 'from-slate-400 to-slate-500' },
+  1: { label: 'Jarayonda',      dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'from-emerald-400 to-emerald-500' },
+  2: { label: 'Tugallangan',    dot: 'bg-amber-500',  badge: 'bg-amber-100 text-amber-700 border-amber-200',      accent: 'from-amber-400 to-amber-500' },
+  3: { label: 'Rad qilingan',   dot: 'bg-rose-500',   badge: 'bg-rose-100 text-rose-700 border-rose-200',         accent: 'from-rose-400 to-rose-500' },
+  4: { label: 'Rad qilingan',   dot: 'bg-rose-500',   badge: 'bg-rose-100 text-rose-700 border-rose-200',         accent: 'from-rose-400 to-rose-500' },
+}
+const contractStatus = computed(() => {
+  const s = Number(contract.value?.status)
+  return CONTRACT_STATUS[s] || { label: 'Noma’lum', dot: 'bg-slate-400', badge: 'bg-slate-100 text-slate-700 border-slate-200', accent: 'from-slate-300 to-slate-400' }
+})
 
 // ------- NORMALIZED GETTERS -------
 const contract = computed(() => raw.value?.contract ?? null)
@@ -153,38 +166,73 @@ const pdfAllUrl = computed(() => {
       {{ err }}
     </div>
 
-    <div v-else-if="contract" class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <!-- Header & actions -->
-      <div class="flex items-start justify-between gap-4">
-        <h2 class="text-xl md:text-2xl font-semibold text-slate-800">
-          {{ contract.number }}-sonli qarz shartnomasi
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <a :href="pdfUrl" download
-             class="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600  text-white text-sm px-4 py-2.5">
-            <span class="text-xs">PDF</span><span>Shartnomani yuklab olish</span>
-          </a>
-          <a :href="pdfAllUrl" download
-             class="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600/90  text-white text-sm px-4 py-2.5">
-            <span class="text-xs">PDF</span><span>Barcha hujjatlarni yuklab olish</span>
-          </a>
+    <div v-else-if="contract" class="space-y-6">
+      <!-- ====== Shartnoma sarlavha kartasi (redizayn) ====== -->
+      <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <!-- Statusga mos rangli aksent chizig'i -->
+        <div :class="['h-1.5 w-full bg-gradient-to-r', contractStatus.accent]"></div>
+
+        <div class="p-6">
+          <!-- Top: sarlavha + status badge + PDF tugmalar -->
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-3">
+                <h2 class="text-xl md:text-2xl font-semibold text-slate-800">
+                  {{ contract.number }}-sonli qarz shartnomasi
+                </h2>
+                <span :class="['inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold', contractStatus.badge]">
+                  <span :class="['h-2 w-2 rounded-full', contractStatus.dot]"></span>
+                  {{ contractStatus.label }}
+                </span>
+              </div>
+              <p class="mt-1.5 text-sm text-slate-400">Shartnoma ID: {{ contract.uid || contract.id }}</p>
+            </div>
+
+            <div class="flex flex-col gap-2 sm:flex-row">
+              <a :href="pdfUrl" download
+                 class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700">
+                <span class="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-bold">PDF</span>
+                <span>Shartnomani yuklab olish</span>
+              </a>
+              <a :href="pdfAllUrl" download
+                 class="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-600 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
+                <span class="rounded bg-emerald-600/10 px-1.5 py-0.5 text-[10px] font-bold">PDF</span>
+                <span>Barcha hujjatlar</span>
+              </a>
+            </div>
+          </div>
+
+          <!-- Info kartalar grid -->
+          <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <!-- Qarz miqdori (aksent) -->
+            <div class="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+              <div class="text-xs font-medium text-indigo-500">Qarz miqdori</div>
+              <div class="mt-1 text-xl font-bold text-indigo-700">{{ fmtMoney(contract.amount) }} {{ contract.currency }}</div>
+            </div>
+            <!-- Debitor -->
+            <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+              <div class="text-xs font-medium text-slate-500">Qarz beruvchi (Debitor)</div>
+              <div class="mt-1 text-sm font-semibold text-slate-800 break-words">{{ contract.debitor_name?.trim() || '—' }}</div>
+            </div>
+            <!-- Kreditor -->
+            <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+              <div class="text-xs font-medium text-slate-500">Qarz oluvchi (Kreditor)</div>
+              <div class="mt-1 text-sm font-semibold text-slate-800 break-words">{{ contract.creditor_name?.trim() || '—' }}</div>
+            </div>
+            <!-- Sanalar -->
+            <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+              <div class="text-xs font-medium text-slate-500">Rasmiylashtirilgan</div>
+              <div class="mt-1 text-sm font-semibold text-slate-800">{{ fmtDate(contract.created_at, false) || '—' }}</div>
+              <div class="mt-2 text-xs font-medium text-slate-500">Qaytarish sanasi</div>
+              <div class="mt-0.5 text-sm font-semibold text-slate-800">{{ fmtDate(contract.end_date, false) || '—' }}</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Meta -->
-      <div class="mt-6 grid gap-1 text-slate-800">
-        <p><b>Qarz beruvchi (Debitor):</b> <span class="ml-1">{{ contract.debitor_name }}</span></p>
-        <p><b>Qarz oluvchi (Kreditor):</b> <span class="ml-1">{{ contract.creditor_name }}</span></p>
-        <p><b>Qarz miqdori:</b>
-          <span class="ml-1">{{ fmtMoney(contract.amount) }} {{ contract.currency }}</span>
-        </p>
-        <p><b>Qarz rasmiylashtirilgan vaqt:</b>
-          <span class="ml-1">{{ fmtDate(contract.created_at, true) }}</span>
-        </p>
-      </div>
-
-      <!-- Table -->
-      <div class="mt-6 overflow-x-auto">
+      <!-- ====== Aktlar (dalolatnomalar) jadvali — o'zgarmadi ====== -->
+      <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-200">
           <thead>
             <tr class="text-left text-xs font-semibold text-slate-600">
@@ -252,6 +300,7 @@ const pdfAllUrl = computed(() => {
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
     </div>
 
