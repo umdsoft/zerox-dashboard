@@ -138,6 +138,33 @@ function normalizeAct(a) {
   }
 }
 
+// Status fallback: detal endpoint (forAdminOneContract) statusni qaytarmasa,
+// ro'yxat endpointidan (getAllContracts — statusni DOIM qaytaradi) olamiz.
+// Shunda backend yangilanmagan bo'lsa ham status ko'rinadi. Backend yangilangach,
+// status allaqachon kelganligi uchun bu fallback umuman ishlamaydi (ortiqcha so'rov yo'q).
+async function ensureStatus(contractObj, id) {
+  if (!contractObj) return contractObj
+  const has = contractObj.status != null && String(contractObj.status).trim() !== ''
+  if (has) return contractObj
+  try {
+    const lres = await api.get('/dashboard/contracts', {
+      params: { search: contractObj.number || undefined, limit: 100 },
+    })
+    const body = lres?.data ?? {}
+    const list = Array.isArray(body) ? body
+      : Array.isArray(body.data) ? body.data
+        : Array.isArray(body.items) ? body.items : []
+    const match = list.find((c) =>
+      String(c.id ?? '') === String(id) ||
+      String(c.number ?? c.contract_no ?? '') === String(contractObj.number ?? '')
+    )
+    if (match && match.status != null) {
+      return { ...contractObj, status: match.status }
+    }
+  } catch (_) { /* fallback ixtiyoriy — xato bo'lsa ham asosiy sahifa ishlaydi */ }
+  return contractObj
+}
+
 async function load() {
   const id = route.params.id
   if (!id) { err.value = 'Noto‘g‘ri kontrakt ID'; return }
@@ -146,7 +173,8 @@ async function load() {
   try {
     const res = await api.get(`/contract/admin/contract/${id}`)
     const payload = res?.data?.data ?? res?.data ?? res ?? {}
-    const contractObj = pickContract(payload)
+    let contractObj = pickContract(payload)
+    contractObj = await ensureStatus(contractObj, id)
     raw.value = {
       contract: contractObj,
       acts: pickActs(payload, contractObj).map(normalizeAct),
