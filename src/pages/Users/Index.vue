@@ -240,7 +240,6 @@ async function exportAllUsers() {
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-semibold text-slate-800">Jismoniy shaxslar</h1>
-        <p class="text-sm text-slate-500">Tizimdagi foydalanuvchilar.</p>
       </div>
     </div>
 
@@ -291,12 +290,6 @@ async function exportAllUsers() {
         <h3 class="text-base font-semibold text-slate-800">
           Barcha foydalanuvchilar ({{ total }})
         </h3>
-      </template>
-
-      <template #description>
-        <p class="text-sm text-slate-500">
-          Tizimda ro'yhatdan o'tgan foydalanuvchilar ro'yxati.
-        </p>
       </template>
 
       <!-- ID raqami → /users/:id -->

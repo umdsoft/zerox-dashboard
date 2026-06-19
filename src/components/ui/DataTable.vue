@@ -26,7 +26,7 @@ const props = defineProps({
   },
   emptyMessage: {
     type: String,
-    default: 'No data available'
+    default: 'Ma\'lumot topilmadi'
   }
 });
 
@@ -70,11 +70,9 @@ const handleExport = async () => {
         <slot name="title">
           <h3 class="text-base font-semibold text-slate-800">Data</h3>
         </slot>
-        <slot name="description">
-          <p class="text-sm text-slate-500">Export and manage your dataset easily.</p>
-        </slot>
+        <slot name="description"></slot>
       </div>
-      <AppButton variant="primary" size="sm" @click="handleExport">Export to Excel</AppButton>
+      <AppButton variant="primary" size="sm" @click="handleExport">Excelga yuklash</AppButton>
     </div>
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-slate-200">
@@ -93,7 +91,7 @@ const handleExport = async () => {
         <tbody class="divide-y divide-slate-200 bg-white">
           <tr v-if="props.loading">
             <td :colspan="props.columns.length" class="px-6 py-8 text-center text-sm text-slate-500">
-              Loading...
+              Yuklanmoqda…
             </td>
           </tr>
           <tr v-else-if="!hasData">

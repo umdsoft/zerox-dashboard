@@ -13,6 +13,7 @@ const tab = ref((route.query.type || 'income').toString().toLowerCase())
 const loading = ref(false)
 const rowsRaw = ref([])
 const total = ref(0)
+const search = ref('') // qidiruv (yuklangan qatorlar bo'yicha)
 
 // pagination (1-based)
 const page = ref(Number(route.query.page ?? 1) || 1)
@@ -191,6 +192,17 @@ const rowsForTable = computed(() => {
   }))
 })
 
+/* ---------- qidiruv: F.I.O / ID bo'yicha (yuklangan qatorlar ichida) ---------- */
+const filteredRows = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  const list = rowsForTable.value || []
+  if (!q) return list
+  const keys = ['sname', 'name', 'rname', 'sid', 'rid', 'number', 'pay']
+  return list.filter(row =>
+    keys.some(k => String(row[k] ?? '').toLowerCase().includes(q))
+  )
+})
+
 /* ---------- api ---------- */
 async function loadList() {
   loading.value = true
@@ -237,13 +249,6 @@ function nextPage() { if (canNext.value) { page.value += 1; loadList() } }
                                : "Mobil hisobdan mobil hisobga o‘tkazmalar"
           }}
         </h1>
-        <p class="text-sm text-slate-500">
-          {{
-            tab === 'income'   ? "Foydalanuvchilardan kelgan to‘lovlar tarixi."
-          : tab === 'withdraw' ? "Mobil hisobdan yechilgan mablag‘lar ro‘yxati."
-                               : "Foydalanuvchi hisoblari orasidagi o‘tkazmalar ro‘yxati."
-          }}
-        </p>
       </div>
 
       <div class="flex items-center gap-2">
@@ -253,13 +258,27 @@ function nextPage() { if (canNext.value) { page.value += 1; loadList() } }
       </div>
     </div>
 
+    <!-- Qidiruv (F.I.O / ID bo'yicha) -->
+    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="relative">
+        <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+          </svg>
+        </span>
+        <input
+          v-model="search"
+          type="text"
+          placeholder="F.I.O yoki ID bo‘yicha qidirish…"
+          class="block w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+        />
+      </div>
+    </div>
+
     <!-- DataTable -->
-    <DataTable :columns="columns" :rows="rowsForTable" :loading="loading" class="w-full datatable-center-head">
+    <DataTable :columns="columns" :rows="filteredRows" :loading="loading" class="w-full datatable-center-head">
       <template #title>
-        <h3 class="text-base font-semibold text-slate-800">Jami ({{ total }})</h3>
-      </template>
-      <template #description>
-        <p class="text-sm text-slate-500"></p>
+        <h3 class="text-base font-semibold text-slate-800">Jami ({{ search.trim() ? filteredRows.length : total }})</h3>
       </template>
 
       <!-- income: amount rangli +/− -->

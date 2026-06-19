@@ -216,7 +216,6 @@ function prevPage() { if (canPrev.value) page.value -= 1 }
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-semibold text-slate-800">Qarz shartnomalari</h1>
-        <p class="text-sm text-slate-500">Foydalanuvchilar tomonidan imzolangan shartnomalar.</p>
       </div>
     </div>
 
@@ -261,9 +260,6 @@ function prevPage() { if (canPrev.value) page.value -= 1 }
       class="datatable-center-head">
       <template #title>
         <h3 class="text-base font-semibold text-slate-800">Barcha shartnomalar soni ({{ total }})</h3>
-      </template>
-      <template #description>
-        <p class="text-sm text-slate-500">Qarz beruvchi va qarz oluvchi o'rtasida tuzilgan shartnomalar.</p>
       </template>
 
       <!-- Qarz shartnomasi raqami → /contracts/:id -->

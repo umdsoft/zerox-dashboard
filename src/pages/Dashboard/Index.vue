@@ -86,6 +86,9 @@ const qdCards = computed(() => {
   return out
 })
 
+// Qarz daftari — do'kon kesimida (do'konlar ro'yxati: har do'kon nechta/qancha qarz)
+const qdStores = ref([])
+
 const num = (v)=>Number.isFinite(Number(v))?Number(v):0
 
 // ---------- COLOR PALETTE ----------
@@ -188,6 +191,9 @@ async function loadData(){
       qaytarilgan: num(c?.qaytarilgan), qoldiq: num(c?.qoldiq),
     })
     qarzDaftari.value = { UZS: pick(qd.UZS), USD: pick(qd.USD) }
+
+    // Do'kon kesimi (do'konlar ro'yxati)
+    qdStores.value = Array.isArray(s.qarzDaftariByStore) ? s.qarzDaftariByStore : []
   }catch(e){
     pieError.value='Maʼlumotlarni yuklashda xatolik yuz berdi.'
     regionRaw.value=ageRaw.value=genderRaw.value={labels:[],values:[]}
@@ -277,6 +283,52 @@ onMounted(loadData)
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Qarz daftari — DO'KONLAR RO'YXATI (har do'kon nechta/qancha qarz ro'yxatga olgan) -->
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex items-center justify-between gap-4">
+        <h3 class="text-base font-semibold text-slate-800">Do'konlar ro'yxati</h3>
+        <span class="text-xs font-semibold text-slate-500">{{ fmtN(qdStores.length) }} ta do'kon</span>
+      </div>
+
+      <div v-if="pieLoading" class="mt-4 text-sm text-slate-400">Yuklanmoqda…</div>
+      <div v-else-if="!qdStores.length" class="mt-4 text-sm text-slate-400">Do'kon qarzlari topilmadi</div>
+      <div v-else class="mt-4 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500">
+              <th class="px-3 py-2 text-left">Do'kon</th>
+              <th class="px-3 py-2 text-center">Qarzlar soni</th>
+              <th class="px-3 py-2 text-right">UZS (jami summa)</th>
+              <th class="px-3 py-2 text-right">USD (jami summa)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="st in qdStores" :key="st.faoliyat_id" class="hover:bg-slate-50/60">
+              <td class="px-3 py-2.5">
+                <div class="font-medium text-slate-800">{{ st.nomi }}</div>
+                <div v-if="st.manzil" class="text-xs text-slate-400">{{ st.manzil }}</div>
+              </td>
+              <td class="px-3 py-2.5 text-center font-semibold text-slate-700 tabular-nums">{{ fmtN(st.soni) }}</td>
+              <td class="px-3 py-2.5 text-right tabular-nums">
+                <template v-if="st.UZS.soni">
+                  <span class="font-semibold text-slate-800">{{ fmtN(st.UZS.jami) }}</span>
+                  <span class="ml-1 text-xs text-slate-400">({{ st.UZS.soni }} ta)</span>
+                </template>
+                <span v-else class="text-slate-300">—</span>
+              </td>
+              <td class="px-3 py-2.5 text-right tabular-nums">
+                <template v-if="st.USD.soni">
+                  <span class="font-semibold text-slate-800">{{ fmtN(st.USD.jami) }}</span>
+                  <span class="ml-1 text-xs text-slate-400">({{ st.USD.soni }} ta)</span>
+                </template>
+                <span v-else class="text-slate-300">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>

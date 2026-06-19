@@ -22,7 +22,7 @@ const activePath = computed(() => route.name);
 // Sahifa sarlavhalari — route nomidan emas, professional o'zbekcha nomlar
 const ROUTE_TITLES = {
   'dashboard': 'Boshqaruv paneli',
-  'users': 'Foydalanuvchilar',
+  'users': '',
   'users-detail': 'Foydalanuvchi tafsiloti',
   'users-detail-contracts': 'Foydalanuvchi shartnomalari',
   'users-creditor-history': 'Kreditor shartnomalari tarixi',
@@ -32,12 +32,17 @@ const ROUTE_TITLES = {
   'users-ex-creditor-report': 'Kreditor (arxiv) hisoboti',
   'users-ex-debitor-report': 'Debitor (arxiv) hisoboti',
   'users-logins': 'Kirishlar tarixi',
-  'payments': 'To‘lovlar',
+  'payments': '',
   'mobile-version': 'Mobil versiya',
-  'contracts': 'Qarz shartnomalari',
+  'contracts': '',
   'contracts-detail': 'Shartnoma tafsiloti',
 };
-const pageTitle = computed(() => ROUTE_TITLES[route.name] || 'ZeroX Admin');
+// Bo'sh ('') qiymat — ataylab: top sarlavha ko'rsatilmaydi (sahifaning o'z h1'i bor).
+// Faqat kalit umuman yo'q bo'lsa 'ZeroX Admin' fallback.
+const pageTitle = computed(() => {
+  const t = ROUTE_TITLES[route.name];
+  return t !== undefined ? t : 'ZeroX Admin';
+});
 
 const initials = computed(() => {
   if (!authStore.user?.name) return 'AD';
@@ -150,7 +155,7 @@ const toggleSidebar = () => {
             </svg>
             Menu
           </button>
-          <h1 class="text-lg font-semibold text-slate-800">{{ pageTitle }}</h1>
+          <h1 v-if="pageTitle" class="text-lg font-semibold text-slate-800">{{ pageTitle }}</h1>
         </div>
         <div class="flex items-center gap-3">
           <AppButton variant="secondary" size="sm" @click="handleLogout">Chiqish</AppButton>
