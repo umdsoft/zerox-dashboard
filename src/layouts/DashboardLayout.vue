@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue';
 import { useRouter, useRoute, RouterView, RouterLink } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
-import AppButton from '../components/ui/AppButton.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -61,6 +60,12 @@ const handleLogout = () => {
 
 const toggleSidebar = () => {
   sidebarOpen.value = !sidebarOpen.value;
+};
+
+// Orqaga — tarix bo'lsa qaytaramiz, aks holda Boshqaruv paneliga
+const goBack = () => {
+  if (window.history.length > 1) router.back();
+  else router.push({ name: 'dashboard' });
 };
 </script>
 
@@ -131,16 +136,27 @@ const toggleSidebar = () => {
           </li>
         </ul>
       </nav>
-      <div class="border-t border-slate-200 p-6">
-        <div class="flex items-center gap-3" v-if="authStore.user">
-          <div class="h-11 w-11 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold">
+      <div class="border-t border-slate-200 p-3">
+        <div class="mb-2 flex items-center gap-3 px-1" v-if="authStore.user">
+          <div class="h-10 w-10 shrink-0 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-semibold">
             {{ initials }}
           </div>
-          <div v-if="sidebarOpen" class="space-y-1">
-            <p class="text-sm font-semibold text-slate-800">{{ authStore.user.name }}</p>
-            <p class="text-xs text-slate-500">{{ authStore.user.role?.name || 'Administrator' }}</p>
+          <div v-if="sidebarOpen" class="min-w-0">
+            <p class="truncate text-sm font-semibold text-slate-800">{{ authStore.user.name }}</p>
+            <p class="truncate text-xs text-slate-500">{{ authStore.user.role?.name || 'Administrator' }}</p>
           </div>
         </div>
+        <!-- Chiqish (logout) — sidebar pastida -->
+        <button
+          @click="handleLogout"
+          :class="['group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-rose-50 hover:text-rose-600', sidebarOpen ? '' : 'justify-center']"
+          title="Chiqish"
+        >
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 group-hover:bg-rose-100 group-hover:text-rose-600">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
+          </span>
+          <span v-if="sidebarOpen">Chiqish</span>
+        </button>
       </div>
     </aside>
     <main class="flex-1 flex flex-col">
@@ -155,11 +171,18 @@ const toggleSidebar = () => {
             </svg>
             Menu
           </button>
+          <!-- Orqaga (Boshqaruv panelidan tashqari sahifalarda) -->
+          <button
+            v-if="route.name !== 'dashboard'"
+            @click="goBack"
+            class="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            Orqaga
+          </button>
           <h1 v-if="pageTitle" class="text-lg font-semibold text-slate-800">{{ pageTitle }}</h1>
         </div>
-        <div class="flex items-center gap-3">
-          <AppButton variant="secondary" size="sm" @click="handleLogout">Chiqish</AppButton>
-        </div>
+        <div class="flex items-center gap-3"></div>
       </header>
       <section class="flex-1 overflow-y-auto p-6">
         <RouterView />

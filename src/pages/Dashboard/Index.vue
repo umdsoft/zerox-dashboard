@@ -258,7 +258,6 @@ onMounted(loadData)
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex items-center justify-between gap-4">
         <h3 class="text-base font-semibold text-slate-800">Qarz daftari (umumiy)</h3>
-        <span class="text-xs font-semibold text-slate-500">Norasmiy qarz qaydnomasi</span>
       </div>
 
       <div v-if="pieLoading" class="mt-4 text-sm text-slate-400">Yuklanmoqda…</div>

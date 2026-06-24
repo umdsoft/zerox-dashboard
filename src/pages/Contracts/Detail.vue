@@ -251,7 +251,6 @@ const pdfAllUrl = computed(() => {
                   {{ contractStatus.label }}
                 </span>
               </div>
-              <p class="mt-1.5 text-sm text-slate-400">Shartnoma ID: {{ contract.uid || contract.id }}</p>
             </div>
 
             <div class="flex flex-col gap-2 sm:flex-row">
@@ -291,7 +290,7 @@ const pdfAllUrl = computed(() => {
                 </svg>
               </div>
               <div class="min-w-0">
-                <div class="text-xs font-medium text-slate-500">Qarz beruvchi (Debitor)</div>
+                <div class="text-xs font-medium text-slate-500">Qarz beruvchi</div>
                 <div class="mt-0.5 text-sm font-semibold text-slate-800 break-words">{{ contract.debitor_name?.trim() || '—' }}</div>
               </div>
             </div>
@@ -303,7 +302,7 @@ const pdfAllUrl = computed(() => {
                 </svg>
               </div>
               <div class="min-w-0">
-                <div class="text-xs font-medium text-slate-500">Qarz oluvchi (Kreditor)</div>
+                <div class="text-xs font-medium text-slate-500">Qarz oluvchi</div>
                 <div class="mt-0.5 text-sm font-semibold text-slate-800 break-words">{{ contract.creditor_name?.trim() || '—' }}</div>
               </div>
             </div>
