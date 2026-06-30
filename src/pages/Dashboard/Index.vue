@@ -1,9 +1,27 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '../../lib/axios'
 
+const router = useRouter()
+
+// Sana formati: "2026-06-22T..." -> "22.06.2026" (noaniq bo'lsa "—")
+function fmtDate(v) {
+  if (!v) return '—'
+  const d = new Date(v)
+  if (isNaN(d.getTime())) return '—'
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  return `${dd}.${mm}.${d.getFullYear()}`
+}
+
+// Do'kon detail sahifasiga o'tish (do'konlar ro'yxatidagi qator bosilganda)
+function goStore(id) {
+  if (id != null) router.push({ name: 'stores-detail', params: { id } })
+}
+
 // ---------- TOP STATS ----------
-// Har bir karta endi 2 ta ko'rsatkich: asosiy son + "shundan bu oyda" sub-qiymat.
+// Har bir karta endi 2 ta ko'rsatkich: asosiy son + "bu oyda" sub-qiymat.
 // Backend `/dashboard/statistic` 8 ta qiymatni qaytaradi (4 ta juftlik).
 const overviewStats = ref({
   usersRegistered: 0,
@@ -36,7 +54,7 @@ const topStats = computed(() => ([
     key: 'users_registered',
     label: "Ro'yxatdan o'tgan foydalanuvchilar",
     value: fmtN(overviewStats.value.usersRegistered),
-    sub: `Shundan bu oyda: ${fmtN(overviewStats.value.usersRegisteredThisMonth)}`,
+    sub: `Bu oyda: ${fmtN(overviewStats.value.usersRegisteredThisMonth)}`,
     icon: 'users',
     tint: 'bg-sky-100 text-sky-600',
   },
@@ -44,7 +62,7 @@ const topStats = computed(() => ([
     key: 'users_active',
     label: 'Aktiv foydalanuvchilar',
     value: fmtN(overviewStats.value.usersActive),
-    sub: `Shundan bu oyda: ${fmtN(overviewStats.value.usersActiveThisMonth)}`,
+    sub: `Bu oyda: ${fmtN(overviewStats.value.usersActiveThisMonth)}`,
     icon: 'users',
     tint: 'bg-emerald-100 text-emerald-600',
   },
@@ -52,7 +70,7 @@ const topStats = computed(() => ([
     key: 'contracts_total',
     label: 'Shartnomalar',
     value: fmtN(overviewStats.value.contractsTotal),
-    sub: `Shundan bu oyda: ${fmtN(overviewStats.value.contractsThisMonth)}`,
+    sub: `Bu oyda: ${fmtN(overviewStats.value.contractsThisMonth)}`,
     icon: 'file-invoice',
     tint: 'bg-indigo-100 text-indigo-600',
   },
@@ -60,7 +78,7 @@ const topStats = computed(() => ([
     key: 'revenue_total',
     label: 'Jami tushum',
     value: fmtMoneyCompact(overviewStats.value.revenueTotal),
-    sub: `Shundan bu oyda: ${fmtMoneyCompact(overviewStats.value.revenueThisMonth)}`,
+    sub: `Bu oyda: ${fmtMoneyCompact(overviewStats.value.revenueThisMonth)}`,
     icon: 'wallet',
     tint: 'bg-amber-100 text-amber-600',
   },
@@ -73,8 +91,8 @@ const genderRaw = ref({ labels: [], values: [] })
 
 // Qarz daftari umumiy summalari (valyuta kesimida)
 const qarzDaftari = ref({
-  UZS: { soni: 0, berilgan: 0, qaytarilgan: 0, qoldiq: 0 },
-  USD: { soni: 0, berilgan: 0, qaytarilgan: 0, qoldiq: 0 },
+  UZS: { soni: 0, berilgan: 0, qaytarilgan: 0, voz_kechilgan: 0, qoldiq: 0 },
+  USD: { soni: 0, berilgan: 0, qaytarilgan: 0, voz_kechilgan: 0, qoldiq: 0 },
 })
 // UZS doim ko'rsatiladi; USD faqat ma'lumot bo'lsa
 const qdCards = computed(() => {
@@ -188,7 +206,8 @@ async function loadData(){
     const qd = s.qarzDaftari ?? {}
     const pick = (c) => ({
       soni: num(c?.soni), berilgan: num(c?.berilgan),
-      qaytarilgan: num(c?.qaytarilgan), qoldiq: num(c?.qoldiq),
+      qaytarilgan: num(c?.qaytarilgan), voz_kechilgan: num(c?.voz_kechilgan),
+      qoldiq: num(c?.qoldiq),
     })
     qarzDaftari.value = { UZS: pick(qd.UZS), USD: pick(qd.USD) }
 
@@ -207,7 +226,7 @@ onMounted(loadData)
 
 <template>
   <div class="space-y-6">
-    <!-- 4 top stats — har biri: asosiy son + "shundan bu oyda" sub-qiymat -->
+    <!-- 4 top stats — har biri: asosiy son + "bu oyda" sub-qiymat -->
     <div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
       <div
         v-for="s in topStats"
@@ -261,13 +280,14 @@ onMounted(loadData)
       </div>
 
       <div v-if="pieLoading" class="mt-4 text-sm text-slate-400">Yuklanmoqda…</div>
-      <div v-else class="mt-4 grid gap-4 sm:grid-cols-2">
+      <!-- UZS va USD tepa-past (vertikal) — ma'lumotlar chalg'itmasligi uchun -->
+      <div v-else class="mt-4 space-y-4">
         <div v-for="c in qdCards" :key="c.cur" class="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
           <div class="flex items-center justify-between">
             <span class="inline-flex items-center rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">{{ c.cur }}</span>
             <span class="text-xs text-slate-500">{{ fmtN(c.soni) }} ta qarz</span>
           </div>
-          <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+          <div class="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
             <div>
               <div class="text-[11px] text-slate-500">Berilgan</div>
               <div class="mt-0.5 text-sm font-bold text-slate-800 tabular-nums">{{ fmtN(c.berilgan) }}</div>
@@ -275,6 +295,10 @@ onMounted(loadData)
             <div>
               <div class="text-[11px] text-slate-500">Qaytarilgan</div>
               <div class="mt-0.5 text-sm font-bold text-emerald-700 tabular-nums">{{ fmtN(c.qaytarilgan) }}</div>
+            </div>
+            <div>
+              <div class="text-[11px] text-slate-500">Voz kechilgan</div>
+              <div class="mt-0.5 text-sm font-bold text-amber-600 tabular-nums">{{ fmtN(c.voz_kechilgan) }}</div>
             </div>
             <div>
               <div class="text-[11px] text-slate-500">Qoldiq</div>
@@ -299,18 +323,36 @@ onMounted(loadData)
           <thead>
             <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500">
               <th class="px-3 py-2 text-left">Do'kon</th>
+              <th class="px-3 py-2 text-left">Manzil</th>
+              <th class="px-3 py-2 text-left">Ro'yxatga olingan</th>
               <th class="px-3 py-2 text-center">Qarzlar soni</th>
+              <th class="px-3 py-2 text-center">SMS</th>
+              <th class="px-3 py-2 text-center">Tariflar</th>
               <th class="px-3 py-2 text-right">UZS (jami summa)</th>
               <th class="px-3 py-2 text-right">USD (jami summa)</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="st in qdStores" :key="st.faoliyat_id" class="hover:bg-slate-50/60">
+            <tr
+              v-for="st in qdStores"
+              :key="st.faoliyat_id"
+              class="cursor-pointer hover:bg-slate-50/60"
+              @click="goStore(st.faoliyat_id)"
+            >
               <td class="px-3 py-2.5">
-                <div class="font-medium text-slate-800">{{ st.nomi }}</div>
-                <div v-if="st.manzil" class="text-xs text-slate-400">{{ st.manzil }}</div>
+                <div class="flex items-center gap-1.5 font-medium text-slate-800">
+                  {{ st.nomi }}
+                  <fa icon="chevron-right" class="text-[10px] text-slate-300" />
+                </div>
               </td>
+              <td class="px-3 py-2.5 text-slate-600">
+                <span v-if="st.manzil">{{ st.manzil }}</span>
+                <span v-else class="text-slate-300">—</span>
+              </td>
+              <td class="px-3 py-2.5 text-slate-600 tabular-nums">{{ fmtDate(st.royxat_sana) }}</td>
               <td class="px-3 py-2.5 text-center font-semibold text-slate-700 tabular-nums">{{ fmtN(st.soni) }}</td>
+              <td class="px-3 py-2.5 text-center text-slate-600 tabular-nums">{{ fmtN(st.sms_soni) }}</td>
+              <td class="px-3 py-2.5 text-center text-slate-600 tabular-nums">{{ fmtN(st.tarif_soni) }}</td>
               <td class="px-3 py-2.5 text-right tabular-nums">
                 <template v-if="st.UZS.soni">
                   <span class="font-semibold text-slate-800">{{ fmtN(st.UZS.jami) }}</span>

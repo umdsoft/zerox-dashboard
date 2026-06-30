@@ -9,13 +9,15 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 // fa-free-solid’dan F R E E ikonlar
 import {
   faUsers, faWallet, faFileInvoice, faCalendarDays,
-  faPlus, faPen, faTrash
+  faPlus, faPen, faTrash, faChevronRight, faArrowLeft,
+  faPhone, faStore, faLocationDot
 } from '@fortawesome/free-solid-svg-icons'
 
 // kerakli ikonlarni kutubxonaga qo‘shamiz
 library.add(
   faUsers, faWallet, faFileInvoice, faCalendarDays,
-  faPlus, faPen, faTrash
+  faPlus, faPen, faTrash, faChevronRight, faArrowLeft,
+  faPhone, faStore, faLocationDot
 )
 
 const app = createApp(App);

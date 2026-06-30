@@ -16,6 +16,7 @@ import DebitorHistoryR from '../pages/Users/contracts/debitor-history.vue'
 import ExCreditor from '../pages/Users/contracts/ex-creditor.vue'
 import ExDebitor from '../pages/Users/contracts/ex-debitor.vue'
 import UserLogins from '../pages/Users/LoginArchive.vue'
+import StoreDetailPage from '../pages/Stores/Detail.vue'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -118,6 +119,12 @@ const router = createRouter({
           path: 'contracts/:id',
           name: 'contracts-detail',
           component: ContractDetailPage,
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'stores/:id',
+          name: 'stores-detail',
+          component: StoreDetailPage,
           meta: { requiresAuth: true }
         }
       ]
