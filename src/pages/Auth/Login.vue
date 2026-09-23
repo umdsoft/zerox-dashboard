@@ -28,6 +28,25 @@ function normalizePhone(v) {
   return s
 }
 
+// Backend xabar kodlarini o'zbekcha, tushunarli matnга aylantirish
+function humanError(error) {
+  const code = error?.code || error?.response?.data?.message || error?.message
+  const map = {
+    'user-not-found': "Bu telefon raqam tizimda ro'yxatdan o'tmagan.",
+    'invalid-credentials': "Telefon raqam yoki parol noto'g'ri.",
+    'account-blocked': "Ko'p marta noto'g'ri urinish sababli hisob vaqtincha bloklandi. Birozdan so'ng qayta urining.",
+    'user-nft': "Hisobingiz faollashtirilmagan.",
+    'error': "Kirishda xatolik. Keyinroq urinib ko'ring.",
+  }
+  let msg = map[code] || error?.response?.data?.message || error?.message || "Kirishda xatolik."
+  // invalid-credentials'da qolgan urinishlar sonini ko'rsatamiz (backend beradi)
+  const left = error?.backend?.attemptsLeft
+  if (code === 'invalid-credentials' && left != null) {
+    msg += ` (qolgan urinishlar: ${left})`
+  }
+  return msg
+}
+
 const handleSubmit = async () => {
   errorMessage.value = ''
   try {
@@ -35,8 +54,7 @@ const handleSubmit = async () => {
     await authStore.login({ phone: phoneClean, password: form.password })
     await router.replace({ name: 'dashboard' })
   } catch (error) {
-    errorMessage.value =
-      error?.response?.data?.message || error?.message || 'Unable to login. Please check your credentials.'
+    errorMessage.value = humanError(error)
   }
 }
 </script>

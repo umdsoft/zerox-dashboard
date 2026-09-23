@@ -20,6 +20,20 @@ function goStore(id) {
   if (id != null) router.push({ name: 'stores-detail', params: { id } })
 }
 
+// Mobil hisob qoldig'i (jami tushum EMAS — real qoldiq). Ustiga bosganda ro'yxat.
+const mobileBalanceTotal = ref(null)
+const mobileBalanceUsers = ref(null)
+function fmtMoneyFull(v) { return new Intl.NumberFormat('uz-UZ').format(Number(v || 0)) }
+async function loadMobileBalance() {
+  try {
+    const { data } = await api.get('/dashboard/stats/mobile-balance')
+    const d = data?.data || data || {}
+    mobileBalanceTotal.value = Number(d.total_balance || 0)
+    mobileBalanceUsers.value = Number(d.users_count || 0)
+  } catch (_) { /* non-fatal */ }
+}
+onMounted(loadMobileBalance)
+
 // ---------- TOP STATS ----------
 // Har bir karta endi 2 ta ko'rsatkich: asosiy son + "bu oyda" sub-qiymat.
 // Backend `/dashboard/statistic` 8 ta qiymatni qaytaradi (4 ta juftlik).
@@ -231,7 +245,10 @@ onMounted(loadData)
       <div
         v-for="s in topStats"
         :key="s.key"
-        class="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        class="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition"
+        :class="s.key === 'revenue_total' ? 'cursor-pointer hover:border-amber-300 hover:shadow-md' : ''"
+        @click="s.key === 'revenue_total' && router.push({ name: 'stats-revenue' })"
+        :title="s.key === 'revenue_total' ? 'Kimlar hissa qo‘shganini ko‘rish' : ''"
       >
         <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0', s.tint]">
           <fa :icon="s.icon" />
@@ -240,9 +257,31 @@ onMounted(loadData)
           <div class="text-[11px] tracking-wide text-slate-400 font-semibold">{{ s.label }}</div>
           <div class="mt-1 text-2xl font-bold text-slate-800 truncate">{{ s.value }}</div>
           <div class="mt-1 text-xs font-medium text-slate-500 truncate">{{ s.sub }}</div>
+          <div v-if="s.key === 'revenue_total'" class="mt-1 text-[11px] font-semibold text-amber-600">Ro‘yxatni ko‘rish →</div>
         </div>
       </div>
     </div>
+
+    <!-- Mobil hisob qoldig'i — "Jami tushum"дан farqli (u SMS-paketga sarflanishi mumkin).
+         Ustiga bosganda qoldig'i bor foydalanuvchilar ro'yxati ochiladi. -->
+    <button
+      @click="router.push({ name: 'stats-mobile-balance' })"
+      class="w-full flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 text-left transition hover:bg-emerald-50 hover:border-emerald-300"
+    >
+      <div class="flex items-center gap-4 min-w-0">
+        <div class="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+          <fa icon="wallet" />
+        </div>
+        <div class="min-w-0">
+          <div class="text-[11px] tracking-wide text-emerald-700/70 font-semibold">Mobil hisob qoldig‘i (real qoldiq)</div>
+          <div class="mt-0.5 text-2xl font-bold text-emerald-700 truncate">
+            {{ mobileBalanceTotal === null ? '…' : fmtMoneyFull(mobileBalanceTotal) }} <span class="text-base text-emerald-600/70">so‘m</span>
+          </div>
+          <div class="text-xs font-medium text-emerald-700/60">{{ mobileBalanceUsers === null ? '' : `${fmtN(mobileBalanceUsers)} foydalanuvchida qoldiq bor` }}</div>
+        </div>
+      </div>
+      <span class="text-sm font-semibold text-emerald-700 shrink-0">Ro‘yxatni ko‘rish →</span>
+    </button>
 
     <!-- 3 ma'lumot bloklari (diagrammasiz, reyting ko'rinishida) -->
     <div class="grid gap-6 xl:grid-cols-3">

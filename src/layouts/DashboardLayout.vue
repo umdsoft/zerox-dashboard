@@ -13,6 +13,10 @@ const navigation = [
   { name: 'Foydalanuvchilar', to: { name: 'users' }, icon: 'users' },
   { name: 'To‘lovlar', to: { name: 'payments' }, icon: 'credit-card' },
   { name: 'Qarz shartnomalari', to: { name: 'contracts' }, icon: 'document-text' },
+  // Admin STATS (2026-09-12) — Qarz daftari + Shaxsiy qarz + Shaxsiy moliya (statistika)
+  { name: 'Qarz daftari', to: { name: 'stats-qarz-daftari' }, icon: 'book' },
+  { name: 'Shaxsiy qarz', to: { name: 'stats-personal-debt' }, icon: 'wallet' },
+  { name: 'Shaxsiy moliya', to: { name: 'stats-personal-finance' }, icon: 'chart' },
   { name: 'Mobil versiya', to: { name: 'mobile-version' }, icon: 'mobile' }
 ];
 
@@ -35,6 +39,10 @@ const ROUTE_TITLES = {
   'mobile-version': 'Mobil versiya',
   'contracts': '',
   'contracts-detail': 'Shartnoma tafsiloti',
+  'stats-personal-debt': '',
+  'stats-personal-finance': '',
+  'stats-qarz-daftari': '',
+  'stats-mobile-balance': '',
 };
 // Bo'sh ('') qiymat — ataylab: top sarlavha ko'rsatilmaydi (sahifaning o'z h1'i bor).
 // Faqat kalit umuman yo'q bo'lsa 'ZeroX Admin' fallback.
@@ -126,6 +134,12 @@ const goBack = () => {
                         ? 'M2.25 9h19.5M4.5 15h5.25M3 5.25h18a.75.75 0 0 1 .75.75v12a.75.75 0 0 1-.75.75H3A.75.75 0 0 1 2.25 18V6A.75.75 0 0 1 3 5.25z'
                         : item.icon === 'mobile'
                         ? 'M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3'
+                        : item.icon === 'wallet'
+                        ? 'M21 12a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 1 3 7.5m18 4.5v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18V7.5m18 4.5H16.5a1.5 1.5 0 1 0 0 3H21M3 7.5A2.25 2.25 0 0 1 5.25 5.25h13.5A2.25 2.25 0 0 1 21 7.5'
+                        : item.icon === 'chart'
+                        ? 'M3 13.5l4.5-4.5 3 3 6-6M21 6v4.5h-4.5M3.75 20.25h16.5'
+                        : item.icon === 'book'
+                        ? 'M12 6.75c-1.5-1.2-3.75-1.5-5.25-1.5-1.02 0-1.8.12-2.25.24V18.5c.45-.12 1.23-.24 2.25-.24 1.5 0 3.75.3 5.25 1.5m0-12.75c1.5-1.2 3.75-1.5 5.25-1.5 1.02 0 1.8.12 2.25.24V18.5c-.45-.12-1.23-.24-2.25-.24-1.5 0-3.75.3-5.25 1.5m0-12.75V19.5'
                         : 'M4.5 4.5h11.25L21 9.75V19.5a.75.75 0 0 1-.75.75H4.5A.75.75 0 0 1 3.75 19.5V5.25a.75.75 0 0 1 .75-.75zm7.5 7.5h5.25M12 15h5.25M6.75 12h1.5v6h-1.5z'
                     "
                   />

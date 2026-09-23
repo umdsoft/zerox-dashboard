@@ -1,0 +1,29 @@
+name: dashboard-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# VULN-L13 (2026-09-11): least-privilege — test/build uchun yozuv kerak emas.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # `npm ci` intentionally FAILS while package.json/package-lock.json are out
+      # of sync (VULN-011: xlsx 0.20.3 vs locked 0.18.5). Fix the lockfile, then
+      # this becomes a hard reproducibility gate.
+      - name: Install (npm ci)
+        run: npm ci
+      - name: Production build
+        run: npm run build
+      - name: Dependency audit
+        run: npm audit --audit-level=high || true

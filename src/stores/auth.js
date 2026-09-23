@@ -49,6 +49,16 @@ export const useAuthStore = defineStore("auth", {
       this.loading = true;
       try {
         const { data } = await api.post("/user/login", payload);
+        // MUHIM: backend login XATO bo'lganda ham HTTP 200 + {success:false, message}
+        // qaytaradi (user-not-found / invalid-credentials / account-blocked / user-nft).
+        // Shu sabab avval success'ni tekshiramiz — aks holda haqiqiy sabab "token
+        // topilmadi" ostida yashirinardi.
+        if (data && data.success === false) {
+          const err = new Error(data.message || "login-failed");
+          err.code = data.message;
+          err.backend = data;
+          throw err;
+        }
         // Token ba’zida data.token yoki data.data.token bo‘lishi mumkin
         const token =
           (data && data.token) || (data && data.data && data.data.token);

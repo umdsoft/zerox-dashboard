@@ -126,6 +126,37 @@ const router = createRouter({
           name: 'stores-detail',
           component: StoreDetailPage,
           meta: { requiresAuth: true }
+        },
+        // Admin STATS (2026-09-12) — Shaxsiy qarz + Shaxsiy moliya (faqat statistika)
+        {
+          path: 'stats/personal-debt',
+          name: 'stats-personal-debt',
+          component: () => import('../pages/Stats/PersonalDebt.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'stats/personal-finance',
+          name: 'stats-personal-finance',
+          component: () => import('../pages/Stats/PersonalFinance.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'stats/qarz-daftari',
+          name: 'stats-qarz-daftari',
+          component: () => import('../pages/Stats/QarzDaftari.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'stats/mobile-balance',
+          name: 'stats-mobile-balance',
+          component: () => import('../pages/Stats/MobileBalance.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'stats/revenue',
+          name: 'stats-revenue',
+          component: () => import('../pages/Stats/Revenue.vue'),
+          meta: { requiresAuth: true }
         }
       ]
     }

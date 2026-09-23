@@ -6,3 +6,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Haqiqiy maxfiy env fayllari (.env.production / .env.test faqat OCHIQ VITE_* URL'larni
+# saqlaydi va build uchun kerak — ular ataylab kuzatuvda qoladi).
+.env.local
+.env.*.local
