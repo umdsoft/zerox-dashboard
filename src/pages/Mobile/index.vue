@@ -33,6 +33,7 @@ const rows = computed(() => {
     __i: start + i + 1,
     type_label: String(x?.type ?? 'android').toLowerCase() === 'ios' ? 'iOS' : 'Android',
     version: x?.version ?? '',
+    min_version: x?.min_version || '',
     desc: x?.desc ?? '—',
   }))
 })
@@ -90,13 +91,27 @@ const isFormModalActive = ref(false)
 const isDeleteModalActive = ref(false)
 const method = ref('add')
 const editId = ref(null)
-const form = reactive({ type: 'android', version: '', desc: '' })
+const form = reactive({ type: 'android', version: '', min_version: '', desc: '' })
+
+// 08.10: majburiy yangilanish — `min_version` (ixtiyoriy). Shu tizimning ENG SO'NGGI yozuvidagi
+// qiymat ishlaydi: undan past versiyadagi ilovalar yangilanmaguncha bloklanadi (GET /version/check).
+const VERSION_RE = /^\d+(\.\d+){1,2}$/
+function cmpVersion(a, b) {
+  const pa = String(a).split('.').map(n => parseInt(n, 10) || 0)
+  const pb = String(b).split('.').map(n => parseInt(n, 10) || 0)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0)
+    if (d) return d > 0 ? 1 : -1
+  }
+  return 0
+}
 
 function openAdd() {
   method.value = 'add'
   editId.value = null
   form.type = 'android'
   form.version = ''
+  form.min_version = ''
   form.desc = ''
   isFormModalActive.value = true
 }
@@ -105,6 +120,7 @@ function openEdit(row) {
   editId.value = row?.id ?? row?._id
   form.type = (row?.type || 'android').toString().toLowerCase()
   form.version = row?.version ?? ''
+  form.min_version = row?.min_version ?? ''
   form.desc = row?.desc ?? ''
   isFormModalActive.value = true
 }
@@ -116,11 +132,31 @@ async function save() {
     const payload = {
       type: (form.type || 'android').toLowerCase(),
       version: form.version?.trim(),
+      min_version: form.min_version?.trim() || null,
       desc: form.desc?.trim(),
     }
     if (!payload.version || !payload.desc) {
       submitting.value = false
       return Swal.fire('Ogohlantirish', "Iltimos, barcha maydonlarni to'ldiring.", 'warning')
+    }
+    if (!VERSION_RE.test(payload.version) || (payload.min_version && !VERSION_RE.test(payload.min_version))) {
+      submitting.value = false
+      return Swal.fire('Ogohlantirish', "Versiya 1.7 yoki 1.7.2 ko'rinishida bo'lishi kerak.", 'warning')
+    }
+    if (payload.min_version && cmpVersion(payload.min_version, payload.version) > 0) {
+      submitting.value = false
+      return Swal.fire('Ogohlantirish', "Minimal versiya ilova versiyasidan katta bo'lishi mumkin emas.", 'warning')
+    }
+    if (payload.min_version) {
+      const ok = await Swal.fire({
+        title: 'Majburiy yangilanish',
+        text: `${payload.type === 'ios' ? 'iOS' : 'Android'} ilovasining ${payload.min_version} dan past versiyalari yangilanmaguncha ishlamaydi. Yangi versiya do'konda (Play Market / App Store) allaqachon chiqqanmi?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Ha, saqlash',
+        cancelButtonText: 'Bekor qilish',
+      })
+      if (!ok.isConfirmed) { submitting.value = false; return }
     }
     if (method.value === 'add') {
       await api.post('/version/create', payload)
@@ -170,6 +206,7 @@ async function executeDelete(){
         { label: '№', key: '__i', width: 64 },
         { label: 'TIZIM', key: 'type', sortable: true },
         { label: 'ILOVA VERSIYASI', key: 'version', sortable: true },
+        { label: 'MAJBURIY (MIN)', key: 'min_version', width: 140 },
         { label: `O'ZGARISH`, key: 'desc', sortable: true },
         { label: '', key: '__actions', width: 200 },
       ]"
@@ -199,6 +236,12 @@ async function executeDelete(){
       <!-- Tizim -->
       <template #cell-type="{ row }">
         {{ row.type_label }}
+      </template>
+
+      <!-- 08.10: majburiy yangilanish chegarasi -->
+      <template #cell-min_version="{ row }">
+        <span v-if="row.min_version" class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-semibold">{{ row.min_version }}</span>
+        <span v-else class="text-slate-400">—</span>
       </template>
 
       <!-- O'zgarish (truncate) -->
@@ -250,6 +293,16 @@ async function executeDelete(){
         <div class="mb-4">
           <label class="block text-sm font-semibold mb-2">Ilova versiyasi</label>
           <input v-model.trim="form.version" type="text" required class="w-full border rounded px-3 py-2" placeholder="1.0.0" />
+        </div>
+
+        <!-- 08.10: majburiy yangilanish -->
+        <div class="mb-4">
+          <label class="block text-sm font-semibold mb-2">Minimal versiya (majburiy yangilanish)</label>
+          <input v-model.trim="form.min_version" type="text" class="w-full border rounded px-3 py-2" placeholder="Masalan: 1.7 (bo'sh — majburiy emas)" />
+          <p class="text-xs text-slate-500 mt-1">
+            To'ldirilsa, shu versiyadan past ilovalarda "Ilovaning yangi versiyasi mavjud" oynasi chiqadi va ilova
+            yangilanmaguncha ishlamaydi. Faqat yangi versiya do'konda chiqqanidan keyin to'ldiring.
+          </p>
         </div>
 
         <div class="mb-6">
