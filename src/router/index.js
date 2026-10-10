@@ -110,6 +110,13 @@ const router = createRouter({
           meta: { requiresAuth: true }
         },
         {
+          // 10.10: hammaga xabar (Telegram bot + ilova push)
+          path: 'broadcast',
+          name: 'broadcast',
+          component: () => import('../pages/Broadcast/Index.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
           path: 'contracts',
           name: 'contracts',
           component: ContractsPage,
