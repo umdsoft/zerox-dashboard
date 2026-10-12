@@ -11,3 +11,5 @@ pnpm-debug.log*
 # saqlaydi va build uchun kerak — ular ataylab kuzatuvda qoladi).
 .env.local
 .env.*.local
+.gstack/
+dist-test/
