@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../../lib/axios'
+import ShopDebtors from '../../components/qarz/ShopDebtors.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -238,6 +239,9 @@ function goBack() {
           </table>
         </div>
       </div>
+
+      <!-- ====== Barcha qarzdorlar (sahifalangan) + SMS ====== -->
+      <ShopDebtors :shop-id="route.params.id" />
 
       <!-- ====== So'nggi qarzlar ====== -->
       <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
