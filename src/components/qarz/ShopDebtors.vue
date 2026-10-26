@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import api from '../../lib/axios'
 import PagerBar from '../ui/PagerBar.vue'
 
@@ -17,27 +17,39 @@ const q = ref('')
 const loading = ref(false)
 const err = ref('')
 
+let seq = 0 // eski javob yangi holatni bosib ketmasin
 async function load() {
+  const my = ++seq
   loading.value = true; err.value = ''
   try {
     const res = await api.get(`/dashboard/stats/qarz-daftari/shops/${props.shopId}/debtors`, {
       params: { page: page.value, limit: LIMIT, q: q.value || undefined },
     })
+    if (my !== seq) return
     const d = res?.data?.data || {}
     items.value = d.items || []
     total.value = Number(d.total || 0)
   } catch (e) {
+    if (my !== seq) return
+    items.value = []; total.value = 0
     err.value = e?.response?.data?.message || e?.message || 'Yuklashda xatolik'
-  } finally { loading.value = false }
+  } finally { if (my === seq) loading.value = false }
 }
 function setPage(p) { page.value = p; load() }
 let timer = null
 function onSearch() {
   clearTimeout(timer)
+  seq++ // kutilayotgan eski so'rov natijasi endi qabul qilinmaydi
   timer = setTimeout(() => { page.value = 1; load() }, 350)
 }
 onMounted(load)
-watch(() => props.shopId, () => { page.value = 1; q.value = ''; load() })
+watch(() => props.shopId, () => {
+  clearTimeout(timer)
+  page.value = 1; q.value = ''
+  smsOpen.value = false; smsSeq++
+  load()
+})
+onBeforeUnmount(() => { clearTimeout(timer); seq++; smsSeq++ })
 
 // ---- SMS oynasi ----
 const SMS_LIMIT = 10
@@ -49,20 +61,25 @@ const smsPage = ref(1)
 const smsLoading = ref(false)
 const smsErr = ref('')
 
+let smsSeq = 0
 async function loadSms() {
   if (!smsDebtor.value) return
+  const my = ++smsSeq
   smsLoading.value = true; smsErr.value = ''
   try {
     const res = await api.get(
       `/dashboard/stats/qarz-daftari/shops/${props.shopId}/debtors/${smsDebtor.value.mijoz_id}/sms`,
       { params: { page: smsPage.value, limit: SMS_LIMIT } },
     )
+    if (my !== smsSeq) return
     const d = res?.data?.data || {}
     smsItems.value = d.items || []
     smsTotal.value = Number(d.total || 0)
   } catch (e) {
+    if (my !== smsSeq) return
+    smsItems.value = []; smsTotal.value = 0
     smsErr.value = e?.response?.data?.message || e?.message || 'Yuklashda xatolik'
-  } finally { smsLoading.value = false }
+  } finally { if (my === smsSeq) smsLoading.value = false }
 }
 function openSms(row) {
   smsDebtor.value = row; smsPage.value = 1; smsItems.value = []; smsTotal.value = 0
@@ -84,7 +101,9 @@ const STATUS = {
   pending: { label: 'Kutilmoqda', cls: 'bg-amber-100 text-amber-700' },
 }
 const st = (s) => STATUS[s] || { label: s || '—', cls: 'bg-slate-100 text-slate-600' }
-const TYPE = { auto: 'Avto', manual: 'Qo‘lda', registration: 'Ro‘yxat', payment_link: 'To‘lov havolasi' }
+const TYPE = {
+  auto: 'Avto', manual: 'Qo‘lda', registration: 'Ro‘yxat', payment_link: 'To‘lov havolasi', qarz_tolandi: 'Qarz to‘landi',
+}
 const tp = (t) => TYPE[t] || t || '—'
 </script>
 
@@ -136,7 +155,7 @@ const tp = (t) => TYPE[t] || t || '—'
               >SMS xabarlar</button>
             </td>
           </tr>
-          <tr v-if="!items.length && !loading">
+          <tr v-if="!items.length && !loading && !err">
             <td colspan="7" class="px-3 py-6 text-center text-slate-400">Qarzdorlar topilmadi</td>
           </tr>
           <tr v-if="loading"><td colspan="7" class="px-3 py-6 text-center text-slate-400">Yuklanmoqda…</td></tr>

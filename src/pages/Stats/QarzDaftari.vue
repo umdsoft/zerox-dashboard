@@ -29,7 +29,9 @@ const shopLoading = ref(false)
 const shopErr = ref('')
 const regionFilter = ref('')  // hudud kartasi bosilganda
 
+let shopSeq = 0 // eski (kech kelgan) javob yangi holatni bosib ketmasin
 async function loadShops() {
+  const seq = ++shopSeq
   shopLoading.value = true; shopErr.value = ''
   try {
     const res = await api.get('/dashboard/stats/qarz-daftari/shops', {
@@ -40,12 +42,15 @@ async function loadShops() {
         sort: sortKey.value,
       },
     })
+    if (seq !== shopSeq) return
     const d = res?.data?.data || {}
     shopRows.value = d.items || []
     shopTotal.value = Number(d.total || 0)
   } catch (e) {
+    if (seq !== shopSeq) return
+    shopRows.value = []; shopTotal.value = 0
     shopErr.value = e?.response?.data?.message || e?.message || 'Do‘konlarni yuklashda xatolik.'
-  } finally { shopLoading.value = false }
+  } finally { if (seq === shopSeq) shopLoading.value = false }
 }
 function setShopPage(p) { shopPage.value = p; loadShops() }
 function refetchShops() { shopPage.value = 1; loadShops() }
@@ -57,18 +62,22 @@ function pickRegion(name) {
 function clearRegion() { regionFilter.value = ''; refetchShops() }
 const shopsBox = ref(null)
 
+let loadSeq = 0
 async function load() {
+  const seq = ++loadSeq
   loading.value = true; err.value = ''
   try {
     const [a, b] = await Promise.all([
       api.get('/dashboard/stats/qarz-daftari', { params: { include_shops: 0 } }),
       api.get('/dashboard/stats/shops-by-region'),
     ])
+    if (seq !== loadSeq) return
     stats.value = a?.data?.data || null
     regions.value = b?.data?.data || null
   } catch (e) {
+    if (seq !== loadSeq) return
     err.value = e?.response?.data?.message || e?.message || 'Ma‘lumotlarni yuklashda xatolik.'
-  } finally { loading.value = false }
+  } finally { if (seq === loadSeq) loading.value = false }
   shopPage.value = 1
   await loadShops()
 }
@@ -194,6 +203,7 @@ const metricLabel = { berilgan: 'Berilgan', qaytarilgan: 'Qaytarilgan', qoldiq: 
           </table>
         </div>
         <PagerBar :page="shopPage" :limit="SHOP_LIMIT" :total="shopTotal" :disabled="shopLoading" @change="setShopPage" />
+        <p class="px-4 pb-3 text-xs text-slate-400">Qator = do‘kon × valyuta: ikki valyutada qarzi bor do‘kon 2 qatorda ko‘rinadi, sahifalash qatorlar bo‘yicha.</p>
       </div>
     </template>
   </div>
