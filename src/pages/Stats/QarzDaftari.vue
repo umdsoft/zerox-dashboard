@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../../lib/axios'
 import PagerBar from '../../components/ui/PagerBar.vue'
@@ -28,6 +28,25 @@ const shopPage = ref(1)
 const shopLoading = ref(false)
 const shopErr = ref('')
 const regionFilter = ref('')  // hudud kartasi bosilganda
+const SEARCH_DEBOUNCE_MS = 350
+const SEARCH_MAX_LEN = 100
+const searchInput = ref('')   // input'dagi matn
+const shopQuery = ref('')     // serverga yuborilgan (faol) qidiruv
+let searchTimer = null
+const clearSearchTimer = () => { if (searchTimer) { clearTimeout(searchTimer); searchTimer = null } }
+function applySearch() {
+  clearSearchTimer()
+  const v = searchInput.value.trim().slice(0, SEARCH_MAX_LEN)
+  if (v === shopQuery.value) return
+  shopQuery.value = v
+  refetchShops()
+}
+function onSearchInput() {
+  clearSearchTimer()
+  searchTimer = setTimeout(applySearch, SEARCH_DEBOUNCE_MS)
+}
+function clearSearch() { searchInput.value = ''; applySearch() }
+onBeforeUnmount(clearSearchTimer)
 
 let shopSeq = 0 // eski (kech kelgan) javob yangi holatni bosib ketmasin
 async function loadShops() {
@@ -39,6 +58,7 @@ async function loadShops() {
         page: shopPage.value, limit: SHOP_LIMIT,
         region: regionFilter.value || undefined,
         currency: curFilter.value || undefined,
+        q: shopQuery.value || undefined,
         sort: sortKey.value,
       },
     })
@@ -156,10 +176,25 @@ const metricLabel = { berilgan: 'Berilgan', qaytarilgan: 'Qaytarilgan', qoldiq: 
             Hudud: {{ regionFilter }}
             <button type="button" class="w-5 h-5 rounded-full hover:bg-indigo-100" title="Filtrni bekor qilish" @click="clearRegion">×</button>
           </span>
+          <span v-if="shopQuery" class="inline-flex items-center gap-1 text-xs font-medium bg-indigo-50 text-indigo-700 rounded-full pl-2.5 pr-1 py-1">
+            Qidiruv: {{ shopQuery }}
+            <button type="button" class="w-5 h-5 rounded-full hover:bg-indigo-100" title="Qidiruvni bekor qilish" @click="clearSearch">×</button>
+          </span>
           <select v-model="curFilter" class="border rounded-lg px-2 py-1 text-sm" @change="refetchShops">
             <option value="">Barcha valyuta</option>
             <option v-for="c in currencies" :key="c" :value="c">{{ c }}</option>
           </select>
+        </div>
+        <div class="px-4 py-3 border-b border-slate-100">
+          <div class="relative max-w-md">
+            <input
+              v-model="searchInput" type="text" :maxlength="SEARCH_MAX_LEN" autocomplete="off"
+              placeholder="Do‘kon nomi, ID yoki egasi telefoni"
+              class="w-full border rounded-lg pl-3 pr-9 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300"
+              @input="onSearchInput" @keyup.enter="applySearch" @keyup.esc="clearSearch" />
+            <button v-if="searchInput" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full text-slate-400 hover:bg-slate-100"
+              title="Tozalash" @click="clearSearch">×</button>
+          </div>
         </div>
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -181,7 +216,10 @@ const metricLabel = { berilgan: 'Berilgan', qaytarilgan: 'Qaytarilgan', qoldiq: 
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-for="r in shopRows" :key="r.shop_id + '-' + r.currency" class="hover:bg-indigo-50 cursor-pointer transition" @click="goShop(r.shop_id)" title="Do‘kon tafsilotini ochish">
-                <td class="px-4 py-3 font-medium text-indigo-700 hover:underline">{{ r.nomi }}</td>
+                <td class="px-4 py-3 font-medium text-indigo-700">
+                  <span class="hover:underline">{{ r.nomi }}</span>
+                  <span v-if="r.owner_phone" class="block text-xs font-normal text-slate-400">{{ r.owner_phone }}</span>
+                </td>
                 <td class="px-4 py-3 text-slate-500">{{ r.region }}</td>
                 <td class="px-4 py-3">{{ r.currency }}</td>
                 <td class="px-4 py-3 text-right font-semibold">{{ fmt(r.berilgan) }}</td>
@@ -198,6 +236,7 @@ const metricLabel = { berilgan: 'Berilgan', qaytarilgan: 'Qaytarilgan', qoldiq: 
               </tr>
               <tr v-if="shopErr"><td colspan="12" class="px-4 py-6 text-center text-rose-600">{{ shopErr }}</td></tr>
               <tr v-else-if="shopLoading && !shopRows.length"><td colspan="12" class="px-4 py-6 text-center text-slate-400">Yuklanmoqda…</td></tr>
+              <tr v-else-if="!shopRows.length && shopQuery"><td colspan="12" class="px-4 py-6 text-center text-slate-500">Hech narsa topilmadi — «{{ shopQuery }}»</td></tr>
               <tr v-else-if="!shopRows.length"><td colspan="12" class="px-4 py-6 text-center text-slate-400">Ma‘lumot yo‘q</td></tr>
             </tbody>
           </table>
