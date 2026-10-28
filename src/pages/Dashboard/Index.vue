@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../../lib/axios'
+import DailyDynamics from '../../components/stats/DailyDynamics.vue'
 
 const router = useRouter()
 
@@ -261,6 +262,9 @@ onMounted(loadData)
         </div>
       </div>
     </div>
+
+    <!-- 28.10: kunlik dinamika (oxirgi 7/14/30 kun) -->
+    <DailyDynamics />
 
     <!-- Mobil hisob qoldig'i — "Jami tushum"дан farqli (u SMS-paketga sarflanishi mumkin).
          Ustiga bosganda qoldig'i bor foydalanuvchilar ro'yxati ochiladi. -->
