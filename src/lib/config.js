@@ -3,6 +3,11 @@
 // Fallback — TEST muhit (tb.zerox.uz). Prod uchun .env'da app.zerox.uz qo'ying.
 export const APP_BASE = import.meta.env.VITE_APP_BASE || 'https://tb.zerox.uz';
 export const PDF_BASE = import.meta.env.VITE_PDF_BASE || 'https://pdf.zerox.uz';
+// TEST muhit (dash.zerox.uz → tb, admin_zerox_test) uchun PDF skriptlari `*_test.php` — aks holda
+// index.php PROD bazadan qidiradi va test shartnoma "Hujjat topilmadi" beradi.
+export const PDF_SCRIPT_SUFFIX = import.meta.env.VITE_PDF_SCRIPT_SUFFIX || '';
+
+const withSuffix = (file) => (PDF_SCRIPT_SUFFIX ? String(file).replace(/\.php$/, `${PDF_SCRIPT_SUFFIX}.php`) : file);
 
 const stripTrailingSlash = (s) => String(s || '').replace(/\/+$/, '');
 
@@ -20,7 +25,7 @@ export function pdfUrl(id, { file = 'index.php', lang, download = 1 } = {}) {
   params.set('id', id);
   if (lang) params.set('lang', lang);
   if (download != null) params.set('download', String(download));
-  return `${stripTrailingSlash(PDF_BASE)}/${file}?${params.toString()}`;
+  return `${stripTrailingSlash(PDF_BASE)}/${withSuffix(file)}?${params.toString()}`;
 }
 
 // 31.10: imzolangan PDF havolasi (backend /pdf/sign, ~10 daqiqa). Xatoda — imzosiz havola (PHP hozircha `log` rejimida).
