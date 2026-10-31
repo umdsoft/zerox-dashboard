@@ -29,7 +29,7 @@ export async function openSignedPdf(api, type, params, fallbackUrl) {
   if (win) win.opener = null;
   let url = fallbackUrl;
   try {
-    const { data } = await api.get('/pdf/sign', { params: { ...params, type } });
+    const { data } = await api.get('/pdf/sign', { params: { ...params, type }, silent403: true });
     if (data && data.success && data.url) url = data.url;
   } catch (_) {
     /* imzosiz havolaga qaytish */
