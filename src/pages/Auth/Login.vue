@@ -13,7 +13,7 @@ const step = ref('credentials')
 const form = reactive({ phone: '', password: '', code: '' })
 const errorMessage = ref('')
 const useRecovery = ref(false)
-const channel = ref('telegram')   // 'telegram' | 'sms' — kod qaysi kanal orqali yuborilgan
+const channel = ref('telegram')   // 'bot' | 'telegram' | 'sms' — kod qaysi kanal orqali yuborilgan
 const challengeToken = ref('')    // faqat xotirada
 const recoveryCodes = ref([])
 const saved = ref(false)
@@ -92,8 +92,10 @@ function backToStart(msg = '') {
   errorMessage.value = msg
 }
 
+const normChannel = (ch) => (['sms', 'bot'].includes(ch) ? ch : 'telegram')
+
 async function showCodeStep(expiresIn, ch) {
-  channel.value = ch === 'sms' ? 'sms' : 'telegram'
+  channel.value = normChannel(ch)
   stopTimers()
   step.value = 'telegram'
   errorMessage.value = ''
@@ -140,7 +142,7 @@ async function resend() {
   try {
     const data = await authStore.telegramResend(challengeToken.value)
     if (data?.sent) {
-      if (data.channel) channel.value = data.channel === 'sms' ? 'sms' : 'telegram'
+      if (data.channel) channel.value = normChannel(data.channel)
       startCountdown(data.expires_in)
     }
     else errorMessage.value = 'Telegram hali ulanmagan.'
@@ -199,6 +201,7 @@ const inputCls = 'block w-full rounded-xl border border-slate-200 bg-white px-4 
         <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 font-semibold text-white">ZX</div>
         <h1 class="text-2xl font-semibold text-slate-800">{{ title }}</h1>
         <p v-if="step === 'credentials'" class="text-sm text-slate-500">Kirish uchun telefon raqamingiz va parolingizni kiriting.</p>
+        <p v-else-if="step === 'telegram' && channel === 'bot'" class="text-sm text-slate-600">Tasdiqlash kodi Telegram'dagi ZeroX admin botiga yuborildi</p>
         <p v-else-if="step === 'telegram' && channel === 'sms'" class="text-sm text-slate-600">Tasdiqlash kodi telefoningizga SMS orqali yuborildi</p>
         <p v-else-if="step === 'telegram'" class="text-sm text-slate-600">Tasdiqlash kodi Telegram'dagi «Verification Codes» chatiga yuborildi</p>
       </div>
