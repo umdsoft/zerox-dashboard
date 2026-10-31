@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import api from '../../lib/axios'
-import { assetUrl, pdfUrl } from '../../lib/config'
+import { assetUrl, pdfUrl, openSignedPdf } from '../../lib/config'
 import { fmtDate, fmtUZS, errMessage } from '../../lib/format'
 import { useRequest } from '../../composables/useRequest'
 import { useAuthStore } from '../../stores/auth'
@@ -58,6 +58,9 @@ const user = computed(() => {
 const ofertaPdf = computed(() =>
   user.value.uid ? pdfUrl(user.value.uid, { file: 'oferta.php' }) : '#'
 )
+
+// Imzolangan oferta havolasi (admin sessiyasi istalgan foydalanuvchi uchun oladi)
+const openOferta = () => openSignedPdf(api, 'oferta', { id: user.value.uid, lang: 'uz', download: 1 }, ofertaPdf.value)
 
 // Hisob holati (is_active) — badge uchun
 const accountStatus = computed(() =>
@@ -208,7 +211,7 @@ watch(() => route.params.id, load)
                 Kirishlar arxivi
               </RouterLink>
 
-              <a :href="ofertaPdf" download
+              <a :href="ofertaPdf" @click.prevent="openOferta"
                 class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold !text-slate-700 no-underline shadow-sm transition duration-200 hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2">
                 <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                 Ommaviy ofertani yuklab olish

@@ -22,3 +22,18 @@ export function pdfUrl(id, { file = 'index.php', lang, download = 1 } = {}) {
   if (download != null) params.set('download', String(download));
   return `${stripTrailingSlash(PDF_BASE)}/${file}?${params.toString()}`;
 }
+
+// 31.10: imzolangan PDF havolasi (backend /pdf/sign, ~10 daqiqa). Xatoda — imzosiz havola (PHP hozircha `log` rejimida).
+export async function openSignedPdf(api, type, params, fallbackUrl) {
+  const win = window.open('', '_blank');
+  if (win) win.opener = null;
+  let url = fallbackUrl;
+  try {
+    const { data } = await api.get('/pdf/sign', { params: { ...params, type } });
+    if (data && data.success && data.url) url = data.url;
+  } catch (_) {
+    /* imzosiz havolaga qaytish */
+  }
+  if (win) win.location.href = url;
+  else window.location.href = url;
+}
