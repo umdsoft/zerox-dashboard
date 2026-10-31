@@ -1,35 +1,37 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '../../lib/axios'
+import { getMobileBalance, getStatistic } from '../../api/stats'
+import { useRequest } from '../../composables/useRequest'
 import DailyDynamics from '../../components/stats/DailyDynamics.vue'
-import { fmtDate, fmtNum, fmtCompact } from '../../lib/format'
+import StatsCards from '../../components/dashboard/StatsCards.vue'
+import DemographicsPanel from '../../components/dashboard/DemographicsPanel.vue'
+import QarzDaftariSummary from '../../components/dashboard/QarzDaftariSummary.vue'
+import { fmtNum } from '../../lib/format'
+import {
+  EMPTY_RAW, parseRegions, parseAges, parseGenders, parseOverview, parseQarzDaftari, parseStores,
+} from '../../lib/dashboardStats'
 
 const router = useRouter()
 
-const fmtD = (v) => fmtDate(v, { empty: '—' })
+const fmtN = (v) => fmtNum(v ?? 0)
 
 // Mobil hisob qoldig'i (jami tushum EMAS — real qoldiq). Ustiga bosganda ro'yxat.
 const mobileBalanceTotal = ref(null)
 const mobileBalanceUsers = ref(null)
-const fmtMoneyFull = fmtNum
-const mobileBalanceError = ref('')
-async function loadMobileBalance() {
-  try {
-    const { data } = await api.get('/dashboard/stats/mobile-balance')
+const mobileBalanceReq = useRequest(({ signal }) => getMobileBalance({ signal }), {
+  mapError: () => 'Qoldiqni yuklab bo‘lmadi',
+  onSuccess(res) {
+    const data = res?.data
     const d = data?.data || data || {}
     mobileBalanceTotal.value = Number(d.total_balance || 0)
     mobileBalanceUsers.value = Number(d.users_count || 0)
-    mobileBalanceError.value = ''
-  } catch (_) {
-    mobileBalanceError.value = 'Qoldiqni yuklab bo‘lmadi'
-  }
-}
-onMounted(loadMobileBalance)
+  },
+})
+const mobileBalanceError = mobileBalanceReq.error
+onMounted(() => mobileBalanceReq.run())
 
-// ---------- TOP STATS ----------
-// Har bir karta endi 2 ta ko'rsatkich: asosiy son + "bu oyda" sub-qiymat.
-// Backend `/dashboard/statistic` 8 ta qiymatni qaytaradi (4 ta juftlik).
+// ---------- /dashboard/statistic ----------
 const overviewStats = ref({
   usersRegistered: 0,
   usersRegisteredThisMonth: 0,
@@ -40,211 +42,43 @@ const overviewStats = ref({
   revenueTotal: 0,
   revenueThisMonth: 0,
 })
-const fmtN = (v) => fmtNum(v ?? 0)
-
-// Pulni qisqartirilgan ko'rinishda — ming / mln / mlrd (masalan: 164,6 ming UZS)
-const fmtMoneyCompact = (v) => `${fmtCompact(v)} UZS`
-
-const topStats = computed(() => ([
-  {
-    key: 'users_registered',
-    label: "Ro'yxatdan o'tgan foydalanuvchilar",
-    value: fmtN(overviewStats.value.usersRegistered),
-    sub: `Bu oyda: ${fmtN(overviewStats.value.usersRegisteredThisMonth)}`,
-    icon: 'users',
-    tint: 'bg-sky-100 text-sky-600',
-  },
-  {
-    key: 'users_active',
-    label: 'Aktiv foydalanuvchilar',
-    value: fmtN(overviewStats.value.usersActive),
-    sub: `Bu oyda: ${fmtN(overviewStats.value.usersActiveThisMonth)}`,
-    icon: 'users',
-    tint: 'bg-emerald-100 text-emerald-600',
-  },
-  {
-    key: 'contracts_total',
-    label: 'Shartnomalar',
-    value: fmtN(overviewStats.value.contractsTotal),
-    sub: `Bu oyda: ${fmtN(overviewStats.value.contractsThisMonth)}`,
-    icon: 'file-invoice',
-    tint: 'bg-indigo-100 text-indigo-600',
-  },
-  {
-    key: 'revenue_total',
-    label: 'Jami tushum',
-    value: fmtMoneyCompact(overviewStats.value.revenueTotal),
-    sub: `Bu oyda: ${fmtMoneyCompact(overviewStats.value.revenueThisMonth)}`,
-    icon: 'wallet',
-    tint: 'bg-amber-100 text-amber-600',
-  },
-]))
-
-// ---------- RAW DATA ----------
-const regionRaw = ref({ labels: [], values: [] })
-const ageRaw    = ref({ labels: [], values: [] })
-const genderRaw = ref({ labels: [], values: [] })
+const regionRaw = ref(EMPTY_RAW())
+const ageRaw = ref(EMPTY_RAW())
+const genderRaw = ref(EMPTY_RAW())
 
 // Qarz daftari umumiy summalari (valyuta kesimida)
 const qarzDaftari = ref({
   UZS: { soni: 0, berilgan: 0, qaytarilgan: 0, voz_kechilgan: 0, qoldiq: 0 },
   USD: { soni: 0, berilgan: 0, qaytarilgan: 0, voz_kechilgan: 0, qoldiq: 0 },
 })
-// UZS doim ko'rsatiladi; USD faqat ma'lumot bo'lsa
-const qdCards = computed(() => {
-  const out = []
-  for (const cur of ['UZS', 'USD']) {
-    const d = qarzDaftari.value?.[cur]
-    if (d && (Number(d.soni) > 0 || cur === 'UZS')) out.push({ cur, ...d })
-  }
-  return out
-})
-
 // Qarz daftari — do'kon kesimida (do'konlar ro'yxati: har do'kon nechta/qancha qarz)
 const qdStores = ref([])
 
-const num = (v)=>Number.isFinite(Number(v))?Number(v):0
+const statisticReq = useRequest(({ signal }) => getStatistic({ signal }), {
+  mapError: () => 'Ma’lumotlarni yuklashda xatolik yuz berdi.',
+  onSuccess(res) {
+    const s = res?.data ?? {}
+    regionRaw.value = parseRegions(s)
+    ageRaw.value = parseAges(s)
+    genderRaw.value = parseGenders(s)
+    overviewStats.value = parseOverview(s)
+    qarzDaftari.value = parseQarzDaftari(s)
+    qdStores.value = parseStores(s)
+  },
+  // Xatoda faqat hudud/yosh/jins tozalanadi (qolganlari avvalgi qiymatida qoladi) — avvalgidek.
+  onError() {
+    regionRaw.value = ageRaw.value = genderRaw.value = EMPTY_RAW()
+  },
+})
+const pieLoading = statisticReq.loading
+const pieError = statisticReq.error
 
-// ---------- COLOR PALETTE ----------
-const palette = ['#0ea5e9','#22d3ee','#6366f1','#a855f7','#f472b6','#f97316','#facc15','#34d399','#14b8a6','#fb7185']
-const colorsFor = (n)=>Array.from({length:n},(_,i)=>palette[i%palette.length])
-
-// ---------- LABEL NORMALIZERS ----------
-// "Луғат топилмади" / "lug'at topilmadi" kabi aniqlanmagan hududlarni tushunarli qilib ko'rsatamiz.
-function normalizeRegionLabel(label){
-  const s = String(label ?? '').trim()
-  if (!s || /топилмади|topilmadi|lug.?at/i.test(s)) return 'Aniqlanmagan hudud'
-  return s
-}
-// Yosh oralig'ini tushunarli ko'rinishga keltiramiz ("18 - 25" -> "18–25 yosh").
-function normalizeAgeLabel(label){
-  const s = String(label ?? '').trim()
-  // Tug'ilgan sanasi kiritilmagan foydalanuvchilar (backend "Not Filled In (NULL)" qaytaradi)
-  if (/not\s*filled|null|nan/i.test(s)) return 'Tug‘ilgan sana kiritilmagan'
-  if (/^under\s*\d+/i.test(s))  return s.replace(/^under\s*(\d+)/i, '$1 yoshgacha')
-  if (/^over\s*\d+/i.test(s))   return s.replace(/^over\s*(\d+)/i, '$1 yoshdan yuqori')
-  const m = s.match(/^(\d+)\s*-\s*(\d+)$/)
-  if (m) return `${m[1]}–${m[2]} yosh`
-  return s || 'Nomaʼlum'
-}
-
-// ---------- ENTRIES (sanitized, >0) ----------
-function toEntries(dataset, { sortDesc = false } = {}){
-  const labels = dataset.labels || []
-  const values = (dataset.values || []).map(num)
-  let entries = labels.map((label, i)=>({ label, value: values[i]||0 }))
-                      .filter(e=>e.value>0)
-  if (sortDesc) entries = entries.slice().sort((a,b)=>b.value-a.value)
-  const cols = colorsFor(entries.length)
-  return entries.map((e,i)=>({ ...e, color: cols[i] }))
-}
-// Hududlar — kamayish tartibida (reyting); yosh va jins tabiiy tartibida.
-const regionEntries = computed(()=>toEntries(regionRaw.value, { sortDesc: true }))
-const ageEntries    = computed(()=>toEntries(ageRaw.value))
-const genderEntries = computed(()=>toEntries(genderRaw.value))
-
-const regionTotal = computed(()=>regionEntries.value.reduce((s,e)=>s+e.value,0))
-const ageTotal    = computed(()=>ageEntries.value.reduce((s,e)=>s+e.value,0))
-const genderTotal = computed(()=>genderEntries.value.reduce((s,e)=>s+e.value,0))
-
-// ---------- SECTION COMPOSITION ----------
-const sections = computed(()=>[
-  { key:'region', title:'Hududlar kesimida (reyting)', total:regionTotal.value, entries:regionEntries.value },
-  { key:'age',    title:'Yosh kesimida',               total:ageTotal.value,    entries:ageEntries.value },
-  { key:'gender', title:'Jins kesimida',               total:genderTotal.value, entries:genderEntries.value },
-])
-
-// ---------- LOAD ----------
-const pieLoading = ref(false), pieError = ref('')
-async function loadData(){
-  pieLoading.value=true; pieError.value=''
-  try{
-    const { data } = await api.get('/dashboard/statistic')
-    const s = data ?? {}
-    // Regions
-    const rs = Array.isArray(s.byRegion) ? s.byRegion : []
-    regionRaw.value = {
-      labels: rs.map(r=>normalizeRegionLabel(r.region ?? r.region_name ?? r.name)),
-      values: rs.map(r=>num(r.cnt ?? r.count ?? r.total))
-    }
-    // Age
-    const as = Array.isArray(s.byAge) ? s.byAge : []
-    ageRaw.value = {
-      labels: as.map(a=>normalizeAgeLabel(a.age_range ?? a.label)),
-      values: as.map(a=>num(a.count ?? a.cnt ?? a.total))
-    }
-    // Gender
-    const gs = Array.isArray(s.byGender) ? s.byGender : []
-    const gL=[], gV=[]
-    gs.forEach(g=>{
-      const raw = String(g.gender ?? g.label ?? '').toLowerCase()
-      let label='Nomaʼlum'
-      if(raw==='1'||raw==='male'||raw==='erkak') label='Erkaklar'
-      if(raw==='2'||raw==='female'||raw==='ayol') label='Ayollar'
-      gL.push(label); gV.push(num(g.cnt ?? g.count ?? g.total))
-    })
-    genderRaw.value = { labels:gL, values:gV }
-
-    // Overview — 4 ta karta uchun 8 ta ko'rsatkich
-    const ov = s.stats ?? {}
-    overviewStats.value = {
-      usersRegistered:          num(ov.usersRegistered ?? ov.users_registered),
-      usersRegisteredThisMonth: num(ov.usersRegisteredThisMonth ?? ov.users_registered_this_month),
-      usersActive:              num(ov.usersActive ?? ov.users_active),
-      usersActiveThisMonth:     num(ov.usersActiveThisMonth ?? ov.users_active_this_month),
-      contractsTotal:           num(ov.contractsTotal ?? ov.contracts_total),
-      contractsThisMonth:       num(ov.contractsThisMonth ?? ov.contracts_this_month),
-      revenueTotal:             num(ov.revenueTotal ?? ov.revenue_total),
-      revenueThisMonth:         num(ov.revenueThisMonth ?? ov.revenue_this_month),
-    }
-
-    // Qarz daftari umumiy summalari
-    const qd = s.qarzDaftari ?? {}
-    const pick = (c) => ({
-      soni: num(c?.soni), berilgan: num(c?.berilgan),
-      qaytarilgan: num(c?.qaytarilgan), voz_kechilgan: num(c?.voz_kechilgan),
-      qoldiq: num(c?.qoldiq),
-    })
-    qarzDaftari.value = { UZS: pick(qd.UZS), USD: pick(qd.USD) }
-
-    // Do'kon kesimi (do'konlar ro'yxati)
-    qdStores.value = Array.isArray(s.qarzDaftariByStore) ? s.qarzDaftariByStore : []
-  }catch(e){
-    pieError.value='Ma’lumotlarni yuklashda xatolik yuz berdi.'
-    regionRaw.value=ageRaw.value=genderRaw.value={labels:[],values:[]}
-  }finally{
-    pieLoading.value=false
-  }
-}
-
-onMounted(loadData)
+onMounted(() => statisticReq.run())
 </script>
 
 <template>
   <div class="space-y-6">
-    <!-- 4 top stats — har biri: asosiy son + "bu oyda" sub-qiymat -->
-    <div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-      <component
-        :is="s.key === 'revenue_total' ? 'button' : 'div'"
-        v-for="s in topStats"
-        :key="s.key"
-        :type="s.key === 'revenue_total' ? 'button' : undefined"
-        class="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition"
-        :class="s.key === 'revenue_total' ? 'cursor-pointer hover:border-amber-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500' : ''"
-        :title="s.key === 'revenue_total' ? 'Kimlar hissa qo‘shganini ko‘rish' : undefined"
-        @click="s.key === 'revenue_total' && router.push({ name: 'stats-revenue' })"
-      >
-        <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0', s.tint]">
-          <fa :icon="s.icon" />
-        </div>
-        <div class="min-w-0 flex-1">
-          <div class="text-[11px] tracking-wide text-slate-500 font-semibold">{{ s.label }}</div>
-          <div class="mt-1 text-2xl font-bold text-slate-800 truncate">{{ s.value }}</div>
-          <div class="mt-1 text-xs font-medium text-slate-500 truncate">{{ s.sub }}</div>
-          <div v-if="s.key === 'revenue_total'" class="mt-1 text-[11px] font-semibold text-amber-600">Ro‘yxatni ko‘rish →</div>
-        </div>
-      </component>
-    </div>
+    <StatsCards :overview="overviewStats" />
 
     <!-- 28.10: kunlik dinamika (oxirgi 7/14/30 kun) -->
     <DailyDynamics />
@@ -263,7 +97,7 @@ onMounted(loadData)
         <div class="min-w-0">
           <div class="text-[11px] tracking-wide text-emerald-800 font-semibold">Mobil hisob qoldig‘i (real qoldiq)</div>
           <div class="mt-0.5 text-2xl font-bold text-emerald-700 truncate">
-            {{ mobileBalanceTotal === null ? (mobileBalanceError ? '—' : '…') : fmtMoneyFull(mobileBalanceTotal) }} <span class="text-base text-emerald-700">so‘m</span>
+            {{ mobileBalanceTotal === null ? (mobileBalanceError ? '—' : '…') : fmtNum(mobileBalanceTotal) }} <span class="text-base text-emerald-700">so‘m</span>
           </div>
           <div class="text-xs font-medium text-emerald-800">{{ mobileBalanceError || (mobileBalanceUsers === null ? '' : `${fmtN(mobileBalanceUsers)} foydalanuvchida qoldiq bor`) }}</div>
         </div>
@@ -271,132 +105,15 @@ onMounted(loadData)
       <span class="text-sm font-semibold text-emerald-700 shrink-0">Ro‘yxatni ko‘rish →</span>
     </button>
 
-    <!-- 3 ma'lumot bloklari (diagrammasiz, reyting ko'rinishida) -->
-    <div class="grid gap-6 xl:grid-cols-3">
-      <div v-for="sec in sections" :key="sec.key" class="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex items-center justify-between gap-4">
-          <h3 class="text-base font-semibold text-slate-800">{{ sec.title }}</h3>
-          <span class="text-xs font-semibold text-slate-500">Jami: {{ fmtN(sec.total) }}</span>
-        </div>
+    <DemographicsPanel
+      :region="regionRaw"
+      :age="ageRaw"
+      :gender="genderRaw"
+      :loading="pieLoading"
+      :error="pieError"
+      @retry="statisticReq.retry()"
+    />
 
-        <div class="mt-4 rounded-2xl border border-slate-100 bg-white/70 p-4">
-          <h4 class="text-sm font-semibold text-slate-700">Maʼlumotlar</h4>
-
-          <div v-if="pieLoading" class="mt-3 text-sm text-slate-500">Yuklanmoqda…</div>
-          <div v-else-if="pieError" class="mt-3 text-sm text-rose-600" role="alert">{{ pieError }} <button type="button" class="ml-2 underline" @click="loadData">Qayta urinish</button></div>
-
-          <ul v-else-if="sec.entries.length" class="mt-3 divide-y divide-slate-100 text-sm">
-            <li v-for="e in sec.entries" :key="e.label" class="flex items-center justify-between gap-3 py-1.5">
-              <span class="flex items-center gap-2 text-slate-700 min-w-0">
-                <span class="inline-block h-2.5 w-2.5 rounded-full shrink-0" :style="{ backgroundColor: e.color }"></span>
-                <span class="truncate">{{ e.label }}</span>
-              </span>
-              <span class="font-semibold text-slate-900 tabular-nums shrink-0">{{ fmtN(e.value) }}</span>
-            </li>
-          </ul>
-
-          <div v-else class="mt-3 text-sm text-slate-500">Ma’lumot mavjud emas</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Qarz daftari — umumiy summalar (valyuta kesimida) -->
-    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex items-center justify-between gap-4">
-        <h3 class="text-base font-semibold text-slate-800">Qarz daftari (umumiy)</h3>
-      </div>
-
-      <div v-if="pieLoading" class="mt-4 text-sm text-slate-500">Yuklanmoqda…</div>
-      <!-- UZS va USD tepa-past (vertikal) — ma'lumotlar chalg'itmasligi uchun -->
-      <div v-else class="mt-4 space-y-4">
-        <div v-for="c in qdCards" :key="c.cur" class="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-          <div class="flex items-center justify-between">
-            <span class="inline-flex items-center rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">{{ c.cur }}</span>
-            <span class="text-xs text-slate-500">{{ fmtN(c.soni) }} ta qarz</span>
-          </div>
-          <div class="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
-            <div>
-              <div class="text-[11px] text-slate-500">Berilgan</div>
-              <div class="mt-0.5 text-sm font-bold text-slate-800 tabular-nums">{{ fmtN(c.berilgan) }}</div>
-            </div>
-            <div>
-              <div class="text-[11px] text-slate-500">Qaytarilgan</div>
-              <div class="mt-0.5 text-sm font-bold text-emerald-700 tabular-nums">{{ fmtN(c.qaytarilgan) }}</div>
-            </div>
-            <div>
-              <div class="text-[11px] text-slate-500">Voz kechilgan</div>
-              <div class="mt-0.5 text-sm font-bold text-amber-600 tabular-nums">{{ fmtN(c.voz_kechilgan) }}</div>
-            </div>
-            <div>
-              <div class="text-[11px] text-slate-500">Qoldiq</div>
-              <div class="mt-0.5 text-sm font-bold text-rose-700 tabular-nums">{{ fmtN(c.qoldiq) }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Qarz daftari — DO'KONLAR RO'YXATI (har do'kon nechta/qancha qarz ro'yxatga olgan) -->
-    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex items-center justify-between gap-4">
-        <h3 class="text-base font-semibold text-slate-800">Do'konlar ro'yxati</h3>
-        <span class="text-xs font-semibold text-slate-500">{{ fmtN(qdStores.length) }} ta do'kon</span>
-      </div>
-
-      <div v-if="pieLoading" class="mt-4 text-sm text-slate-500">Yuklanmoqda…</div>
-      <div v-else-if="!qdStores.length" class="mt-4 text-sm text-slate-500">Do‘kon qarzlari topilmadi</div>
-      <div v-else class="mt-4 overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead>
-            <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500">
-              <th class="px-3 py-2 text-left">Do'kon</th>
-              <th class="px-3 py-2 text-left">Manzil</th>
-              <th class="px-3 py-2 text-left">Ro'yxatga olingan</th>
-              <th class="px-3 py-2 text-center">Qarzlar soni</th>
-              <th class="px-3 py-2 text-center">SMS</th>
-              <th class="px-3 py-2 text-center">Tariflar</th>
-              <th class="px-3 py-2 text-right">UZS (jami summa)</th>
-              <th class="px-3 py-2 text-right">USD (jami summa)</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr
-              v-for="st in qdStores"
-              :key="st.faoliyat_id"
-              class="hover:bg-slate-50/60"
-            >
-              <td class="px-3 py-2.5">
-                <RouterLink :to="{ name: 'stores-detail', params: { id: st.faoliyat_id } }" class="flex items-center gap-1.5 font-medium text-indigo-700 hover:underline">
-                  {{ st.nomi }}
-                  <fa icon="chevron-right" class="text-[10px] text-slate-500" />
-                </RouterLink>
-              </td>
-              <td class="px-3 py-2.5 text-slate-600">
-                <span v-if="st.manzil">{{ st.manzil }}</span>
-                <span v-else class="text-slate-500">—</span>
-              </td>
-              <td class="px-3 py-2.5 text-slate-600 tabular-nums">{{ fmtD(st.royxat_sana) }}</td>
-              <td class="px-3 py-2.5 text-center font-semibold text-slate-700 tabular-nums">{{ fmtN(st.soni) }}</td>
-              <td class="px-3 py-2.5 text-center text-slate-600 tabular-nums">{{ fmtN(st.sms_soni) }}</td>
-              <td class="px-3 py-2.5 text-center text-slate-600 tabular-nums">{{ fmtN(st.tarif_soni) }}</td>
-              <td class="px-3 py-2.5 text-right tabular-nums">
-                <template v-if="st.UZS.soni">
-                  <span class="font-semibold text-slate-800">{{ fmtN(st.UZS.jami) }}</span>
-                  <span class="ml-1 text-xs text-slate-500">({{ st.UZS.soni }} ta)</span>
-                </template>
-                <span v-else class="text-slate-500">—</span>
-              </td>
-              <td class="px-3 py-2.5 text-right tabular-nums">
-                <template v-if="st.USD.soni">
-                  <span class="font-semibold text-slate-800">{{ fmtN(st.USD.jami) }}</span>
-                  <span class="ml-1 text-xs text-slate-500">({{ st.USD.soni }} ta)</span>
-                </template>
-                <span v-else class="text-slate-500">—</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <QarzDaftariSummary :qarz-daftari="qarzDaftari" :stores="qdStores" :loading="pieLoading" />
   </div>
 </template>

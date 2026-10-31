@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink } from 'vue-router'
 import DataTable from '../../components/ui/DataTable.vue'
 import PagerBar from '../../components/ui/PagerBar.vue'
-import api from '../../lib/axios'
+import { getContracts } from '../../api/contracts'
 import { fmtDate, fmtMoney } from '../../lib/format'
 import { usePagedList } from '../../composables/useRequest'
 
@@ -12,7 +12,7 @@ const search = ref('')
 const statusFilter = ref('') // '' = barchasi; '1','2','0','3,4' = holat
 
 const list = usePagedList(({ signal }, { page, limit }) =>
-  api.get('/dashboard/contracts', {
+  getContracts({
     signal,
     params: {
       page, limit,

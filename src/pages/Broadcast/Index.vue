@@ -6,7 +6,7 @@
  */
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import Swal from 'sweetalert2'
-import api from '../../lib/axios'
+import { getAudience, getBroadcasts, sendBroadcast, stopBroadcast } from '../../api/broadcast'
 import { fmtDateTime, errMessage } from '../../lib/format'
 import { toastErr } from '../../lib/toast'
 
@@ -55,7 +55,7 @@ const pushTitle = computed(() => title.value.trim() || 'ZeroX')
 
 async function loadAudience() {
   try {
-    const { data } = await api.get('/dashboard/broadcasts/audience')
+    const { data } = await getAudience()
     audience.value = data?.data || null
     if (!audience.value?.telegram_available) channels.value.telegram = false
   } catch (e) {
@@ -67,7 +67,7 @@ async function loadAudience() {
 async function loadHistory() {
   loadingHistory.value = true
   try {
-    const { data } = await api.get('/dashboard/broadcasts', { params: { limit: 30 } })
+    const { data } = await getBroadcasts({ params: { limit: 30 } })
     history.value = data?.data?.items || []
     activeJobs.value = data?.data?.active_jobs || []
     loadError.value = ''
@@ -103,7 +103,7 @@ async function send() {
   if (!ok.isConfirmed) return
   sending.value = true
   try {
-    const { data } = await api.post('/dashboard/broadcasts', {
+    const { data } = await sendBroadcast({
       text: text.value,
       title: title.value,
       segment: segment.value,
@@ -135,7 +135,7 @@ async function stop() {
     showCancelButton: true, confirmButtonText: "Ha, to'xtatish", cancelButtonText: 'Yo‘q', confirmButtonColor: '#e11d48',
   })
   if (!ok.isConfirmed) return
-  try { await api.post('/dashboard/broadcasts/stop') } catch (e) { toastErr(errMessage(e, 'To‘xtatib bo‘lmadi.')) }
+  try { await stopBroadcast() } catch (e) { toastErr(errMessage(e, 'To‘xtatib bo‘lmadi.')) }
   loadHistory()
 }
 

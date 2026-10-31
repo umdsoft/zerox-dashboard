@@ -2,7 +2,7 @@
 import { reactive, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import DataTable from '../../components/ui/DataTable.vue'
 import PagerBar from '../../components/ui/PagerBar.vue'
-import api from '../../lib/axios'
+import { getAuditLogs } from '../../api/auth'
 import { fmtDateTime } from '../../lib/format'
 import { usePagedList } from '../../composables/useRequest'
 
@@ -20,7 +20,7 @@ const list = usePagedList(({ signal }, { page, limit }) => {
   // 'to' kun oxirigacha (aks holda tanlangan kun jurnaldan tushib qoladi)
   if (filters.from) params.from = `${filters.from}T00:00:00`
   if (filters.to) params.to = `${filters.to}T23:59:59`
-  return api.get('/dashboard/audit-logs', { signal, params })
+  return getAuditLogs({ signal, params })
 }, { limit: 20 })
 const { page, limit, total, loading, error } = list
 

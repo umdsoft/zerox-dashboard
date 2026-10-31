@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import api from '../../lib/axios'
+import { getShopDebtors, getDebtorSms } from '../../api/stats'
 import PagerBar from '../ui/PagerBar.vue'
 import { fmtNum, fmtDateTime as fmtDT } from '../../lib/format'
 
@@ -22,7 +22,7 @@ async function load() {
   const my = ++seq
   loading.value = true; err.value = ''
   try {
-    const res = await api.get(`/dashboard/stats/qarz-daftari/shops/${props.shopId}/debtors`, {
+    const res = await getShopDebtors(props.shopId, {
       params: { page: page.value, limit: LIMIT, q: q.value || undefined },
     })
     if (my !== seq) return
@@ -68,8 +68,8 @@ async function loadSms() {
   const my = ++smsSeq
   smsLoading.value = true; smsErr.value = ''
   try {
-    const res = await api.get(
-      `/dashboard/stats/qarz-daftari/shops/${props.shopId}/debtors/${smsDebtor.value.mijoz_id}/sms`,
+    const res = await getDebtorSms(
+      props.shopId, smsDebtor.value.mijoz_id,
       { params: { page: smsPage.value, limit: SMS_LIMIT } },
     )
     if (my !== smsSeq) return

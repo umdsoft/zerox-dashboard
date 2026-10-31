@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import api from '../../lib/axios'
+import { getDailyActivity } from '../../api/stats'
 import { fmtNum } from '../../lib/format'
 import { bestWorst, dayDelta, fmtDayLabel, pctChange } from './dailyDynamics'
 
@@ -23,7 +23,7 @@ async function load() {
   loading.value = true
   err.value = ''
   try {
-    const { data } = await api.get('/dashboard/stats/daily-activity', {
+    const { data } = await getDailyActivity({
       params: { days: days.value }, signal: aborter.signal,
     })
     if (my !== seq) return

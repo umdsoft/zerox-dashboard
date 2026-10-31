@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import api from '../../lib/axios'
+import { getPersonalFinance } from '../../api/stats'
 import { useRequest } from '../../composables/useRequest'
 import { fmtNum, fmtDate as fmtDateF, fmtDateTime } from '../../lib/format'
 
@@ -15,7 +15,7 @@ const scrollToUsers = () => {
 const gapStatusLabel = (s) => ({ draft: 'Qoralama', active: 'Faol', completed: 'Yakunlangan' }[s] || s || '—')
 
 const req = useRequest(
-  ({ signal }) => api.get('/dashboard/stats/personal-finance', { signal }),
+  ({ signal }) => getPersonalFinance({ signal }),
   { onSuccess: (res) => { data.value = res?.data?.data || res?.data || null } },
 )
 const loading = req.loading

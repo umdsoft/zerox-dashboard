@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import api from '../../lib/axios'
+import { getLoginArchive } from '../../api/users'
 import { fmtDate, fmtDateTime } from '../../lib/format'
 import { usePagedList } from '../../composables/useRequest'
 import StateBlock from '../../components/ui/StateBlock.vue'
@@ -26,7 +26,7 @@ function mapRow(it) {
 }
 
 const list = usePagedList(
-  ({ signal }, { page, limit }) => api.get(`/user/archive/${route.params.id}`, { signal, params: { page, limit } }),
+  ({ signal }, { page, limit }) => getLoginArchive(route.params.id, { signal, params: { page, limit } }),
   { map: mapRow },
 )
 const { rows, page, limit, total, loading, error } = list

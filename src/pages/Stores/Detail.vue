@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import api from '../../lib/axios'
+import { getStore } from '../../api/stats'
 import ShopDebtors from '../../components/qarz/ShopDebtors.vue'
 import StateBlock from '../../components/ui/StateBlock.vue'
 import { fmtNum, fmtDate as formatDate, fmtDateTime } from '../../lib/format'
@@ -56,7 +56,7 @@ const turiLabel = (t) => (t === 'berish' ? 'Berildi' : t === 'olish' ? 'Olindi' 
 
 // ------- API -------
 const req = useRequest(
-  ({ signal }) => api.get(`/dashboard/store/${route.params.id}`, { signal }),
+  ({ signal }) => getStore(route.params.id, { signal }),
   { onSuccess: (res) => { data.value = res?.data?.data ?? null } },
 )
 const loading = req.loading

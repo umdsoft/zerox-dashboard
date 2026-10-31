@@ -1,10 +1,10 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
-import api from '../../lib/axios'
 import { assetUrl, pdfUrl, openSignedPdf } from '../../lib/config'
 import { fmtDate, fmtUZS, errMessage } from '../../lib/format'
-import { useRequest } from '../../composables/useRequest'
+import { useUser } from '../../composables/useUser'
+import { revealUserField } from '../../api/users'
 import { useAuthStore } from '../../stores/auth'
 import { toastOk, toastErr } from '../../lib/toast'
 import ReasonDialog from '../../components/ui/ReasonDialog.vue'
@@ -83,7 +83,7 @@ async function doReveal(reason) {
   const field = revealTarget.value
   try {
     const id = user.value.id ?? route.params.id
-    const res = await api.post(`/dashboard/users/${id}/reveal`, { field, reason })
+    const res = await revealUserField(id, { field, reason })
     const value = res?.data?.value ?? res?.data?.data?.value
     revealed.value = { ...revealed.value, [field]: value ?? '' }
     revealTarget.value = ''
@@ -143,13 +143,12 @@ const ofertaInfo = computed(() =>
     : '—'
 )
 
-const req = useRequest(
-  ({ signal }) => api.get(`/user/admin/user/${route.params.id}`, { signal }),
+const req = useUser(
   { onSuccess: (res) => { raw.value = res?.data?.data ?? res?.data ?? res; revealed.value = {} } },
 )
 const loading = req.loading
 const err = req.error
-const load = () => (route.params.id ? req.run() : undefined)
+const load = () => (route.params.id ? req.run({ id: route.params.id }) : undefined)
 onMounted(load)
 watch(() => route.params.id, load)
 </script>

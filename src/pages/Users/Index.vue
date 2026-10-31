@@ -4,7 +4,7 @@ import { RouterLink } from 'vue-router'
 import DataTable from '../../components/ui/DataTable.vue'
 import PagerBar from '../../components/ui/PagerBar.vue'
 import ReasonDialog from '../../components/ui/ReasonDialog.vue'
-import api from '../../lib/axios'
+import { getUsers, exportUsers } from '../../api/users'
 import { fmtDate, errMessage } from '../../lib/format'
 import { usePagedList } from '../../composables/useRequest'
 import { useAuthStore } from '../../stores/auth'
@@ -29,7 +29,7 @@ const columns = [
 ]
 
 const list = usePagedList(({ signal }, { page, limit }) =>
-  api.get('dashboard/users/2', {
+  getUsers({
     signal,
     params: {
       page, limit,
@@ -82,7 +82,7 @@ async function blobError(e) {
 async function doExport(reason) {
   exporting.value = true; exportError.value = ''
   try {
-    const res = await api.post('dashboard/users/export', {
+    const res = await exportUsers({
       reason,
       filters: {
         search: search.value.trim() || undefined,

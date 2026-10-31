@@ -3,7 +3,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import DataTable from '../../components/ui/DataTable.vue'
 import Swal from 'sweetalert2'
 import PagerBar from '../../components/ui/PagerBar.vue'
-import api from '../../lib/axios'
+import { getVersions, createVersion, updateVersion, deleteVersion } from '../../api/version'
 import { usePagedList } from '../../composables/useRequest'
 import { useAuthStore } from '../../stores/auth'
 import { errMessage } from '../../lib/format'
@@ -16,7 +16,7 @@ const submitting = ref(false)
 
 // Saralash backendda qo'llab-quvvatlanmaydi - DataTable faqat joriy sahifani saralaydi
 const list = usePagedList(({ signal }, { page, limit }) =>
-  api.get('/version/for-admin', { signal, params: { page, limit } }),
+  getVersions({ signal, params: { page, limit } }),
 )
 const { page, limit, total, loading, error } = list
 const items = list.rows
@@ -110,10 +110,10 @@ async function save() {
       if (!ok.isConfirmed) { submitting.value = false; return }
     }
     if (method.value === 'add') {
-      await api.post('/version/create', payload)
+      await createVersion(payload)
       Swal.fire("Qo'shildi!", 'Yangi versiya qo‘shildi.', 'success')
     } else {
-      await api.put(`/version/${editId.value}`, payload)
+      await updateVersion(editId.value, payload)
       Swal.fire('Yangilandi!', 'Versiya yangilandi.', 'success')
     }
     closeForm()
@@ -128,7 +128,7 @@ async function save() {
 function confirmDelete(id){ editId.value = id; isDeleteModalActive.value = true }
 async function executeDelete(){
   try {
-    await api.delete(`/version/${editId.value}`)
+    await deleteVersion(editId.value)
     Swal.fire("O'chirildi!", "Ma'lumot o'chirildi.", 'success')
     isDeleteModalActive.value = false
     await loadList()

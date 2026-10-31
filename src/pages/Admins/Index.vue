@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import DataTable from '../../components/ui/DataTable.vue'
 import PagerBar from '../../components/ui/PagerBar.vue'
-import api from '../../lib/axios'
+import { getAdmins, changeAdminRole } from '../../api/auth'
 import { errMessage } from '../../lib/format'
 import { usePagedList } from '../../composables/useRequest'
 import { useAuthStore, ROLE_LABELS } from '../../stores/auth'
@@ -10,7 +10,7 @@ import { toastOk, toastErr } from '../../lib/toast'
 
 // Adminlar va rollari (faqat super admin)
 const auth = useAuthStore()
-const list = usePagedList(({ signal }, { page, limit }) => api.get('/dashboard/admins', { signal, params: { page, limit } }), { limit: 20 })
+const list = usePagedList(({ signal }, { page, limit }) => getAdmins({ signal, params: { page, limit } }), { limit: 20 })
 const { page, limit, total, loading, error } = list
 
 const ROLE_HINTS = {
@@ -37,7 +37,7 @@ async function changeRole(row, next) {
   }
   saving.value = row.id
   try {
-    await api.patch(`/dashboard/admins/${row.id}/role`, { admin_role: next })
+    await changeAdminRole(row.id, { admin_role: next })
     toastOk('Rol yangilandi.')
   } catch (e) {
     // masalan: oxirgi super adminni pasaytirib bo'lmaydi — backend xabarini ko'rsatamiz

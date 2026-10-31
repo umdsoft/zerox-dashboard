@@ -8,9 +8,10 @@ import { errMessage } from '../lib/format';
  *
  *   const { data, loading, error, run, retry } = useRequest(({ signal }) => api.get(url, { signal }))
  *
+ * mapError(e) — xato matnini moslashtirish (ixtiyoriy); onError(e) — xatodan keyin chaqiriladi.
  * Yangi run() oldingi so'rovni bekor qiladi; eski javob holatni bosib keta olmaydi.
  */
-export function useRequest(fetcher, { immediate = false, initial = null, onSuccess } = {}) {
+export function useRequest(fetcher, { immediate = false, initial = null, onSuccess, mapError, onError } = {}) {
   const data = shallowRef(initial);
   const loading = ref(false);
   const error = ref('');
@@ -35,7 +36,9 @@ export function useRequest(fetcher, { immediate = false, initial = null, onSucce
       return res;
     } catch (e) {
       if (my !== seq || axios.isCancel(e) || e?.code === 'ERR_CANCELED') return undefined;
-      error.value = errMessage(e, 'Ma’lumotni yuklashda xatolik');
+      // mapError berilmasa — avvalgidek errMessage (xulq o'zgarmaydi).
+      error.value = mapError ? mapError(e) : errMessage(e, 'Ma’lumotni yuklashda xatolik');
+      if (onError) onError(e);
       return undefined;
     } finally {
       if (my === seq) loading.value = false;

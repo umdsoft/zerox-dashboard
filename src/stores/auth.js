@@ -1,6 +1,7 @@
 // src/stores/auth.js — admin autentifikatsiya (parol + 2FA), rollar, sessiya
 import { defineStore } from 'pinia';
-import api, { setAuthFailureHandler } from '../lib/axios';
+import { setAuthFailureHandler } from '../lib/axios';
+import * as authApi from '../api/auth';
 import { getAccessToken, setTokens, clearTokens } from '../lib/session';
 
 // Rollar matritsasi (backend bilan bir xil): viewer < operator < super
@@ -50,7 +51,7 @@ export const useAuthStore = defineStore('auth', {
     async loginStep1(payload) {
       this.loading = true;
       try {
-        const { data } = await api.post('/admin/auth/login', payload);
+        const { data } = await authApi.login(payload);
         return data;
       } finally {
         this.loading = false;
@@ -59,7 +60,7 @@ export const useAuthStore = defineStore('auth', {
 
     // Kodni qayta yuborish / ulanishni tekshirish: { sent:true } yoki { linked:false }
     async telegramResend(challengeToken) {
-      const { data } = await api.post('/admin/auth/telegram/resend', { challenge_token: challengeToken });
+      const { data } = await authApi.telegramResend(challengeToken);
       return data;
     },
 
@@ -67,7 +68,7 @@ export const useAuthStore = defineStore('auth', {
     async verifyCode({ challengeToken, code }) {
       this.loading = true;
       try {
-        const { data } = await api.post('/admin/auth/verify', {
+        const { data } = await authApi.verify({
           challenge_token: challengeToken,
           code: String(code).trim(),
         });
@@ -84,7 +85,7 @@ export const useAuthStore = defineStore('auth', {
 
     async fetchMe() {
       if (!this.token) throw new Error('No authentication token');
-      const res = await api.get('/admin/auth/me');
+      const res = await authApi.getMe();
       this.user = unwrap(res);
       return this.user;
     },
@@ -92,7 +93,7 @@ export const useAuthStore = defineStore('auth', {
     // Serverda sessiyani bekor qiladi, so'ng lokal holatni tozalaydi.
     async logout({ remote = true } = {}) {
       if (remote && this.token) {
-        try { await api.post('/admin/auth/logout', null, { silent403: true }); } catch (_) { /* tarmoq xatosi bo'lsa ham lokal chiqamiz */ }
+        try { await authApi.logout({ silent403: true }); } catch (_) { /* tarmoq xatosi bo'lsa ham lokal chiqamiz */ }
       }
       this.clearLocal();
     },

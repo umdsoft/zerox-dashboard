@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import api from '../../lib/axios'
+import { getPersonalDebt } from '../../api/stats'
 import { useRequest } from '../../composables/useRequest'
 import { fmtNum, fmtDate as fmtDateF, fmtDateTime } from '../../lib/format'
 
@@ -16,7 +16,7 @@ const typeLabel = (t) => (t === 'borrowed' ? 'Olingan' : t === 'lent' ? 'Berilga
 const statusLabel = (s) => ({ active: 'Faol', completed: 'Yakunlangan', overdue: 'Muddati o‘tgan', cancelled: 'Bekor qilingan' }[s] || s || '—')
 
 const req = useRequest(
-  ({ signal }) => api.get('/dashboard/stats/personal-debt', { signal }),
+  ({ signal }) => getPersonalDebt({ signal }),
   { onSuccess: (res) => { data.value = res?.data?.data || res?.data || null } },
 )
 const loading = req.loading

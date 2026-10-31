@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import DataTable from '../../components/ui/DataTable.vue'
 import PagerBar from '../../components/ui/PagerBar.vue'
 import ReasonDialog from '../../components/ui/ReasonDialog.vue'
-import api from '../../lib/axios'
+import { getTransfers, cancelClickAtm } from '../../api/contracts'
 import { fmtDate, fmtTime, fmtNum, errMessage } from '../../lib/format'
 import { usePagedList } from '../../composables/useRequest'
 import { useAuthStore } from '../../stores/auth'
@@ -15,9 +15,9 @@ const router = useRouter()
 const auth = useAuthStore()
 
 const TABS = {
-  income: { label: 'Tushgan mablag‘lar', url: '/dashboard/trasfer/pay' },
-  withdraw: { label: 'Mobil hisobdan yechilgan mablag‘', url: '/dashboard/trasfer/paid' },
-  p2p: { label: 'Mobil hisobdan mobil hisobga o‘tkazmalar', url: '/dashboard/trasfer/money-transfer' },
+  income: { label: 'Tushgan mablag‘lar' },
+  withdraw: { label: 'Mobil hisobdan yechilgan mablag‘' },
+  p2p: { label: 'Mobil hisobdan mobil hisobga o‘tkazmalar' },
 }
 const initialTab = String(route.query.type || 'income').toLowerCase()
 const tab = ref(TABS[initialTab] ? initialTab : 'income')
@@ -25,7 +25,7 @@ const search = ref(String(route.query.q || ''))
 
 // Qidiruv serverda (F.I.O, telefon, summa, tranzaksiya ID) — sahifalash bilan birga ishlaydi
 const list = usePagedList(({ signal }, { page, limit }) =>
-  api.get(TABS[tab.value].url, { signal, params: { page, limit, q: tab.value === 'income' ? (search.value.trim() || undefined) : undefined } }),
+  getTransfers(tab.value, { signal, params: { page, limit, q: tab.value === 'income' ? (search.value.trim() || undefined) : undefined } }),
 )
 const { page, limit, total, loading, error } = list
 
@@ -153,7 +153,7 @@ async function confirmCancel(reason) {
   if (!row) return
   cancelBusy.value = true; cancelError.value = ''
   try {
-    await api.post(`/dashboard/transfer/click-atm/${row.id}`, { reason })
+    await cancelClickAtm(row.id, { reason })
     toastOk('To‘lov bekor qilindi.')
     cancelTarget.value = null
     await list.load()

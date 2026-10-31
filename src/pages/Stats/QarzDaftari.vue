@@ -1,7 +1,8 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '../../lib/axios'
+import { getQarzDaftari, getShopsByRegion, getQarzShops } from '../../api/stats'
+import { useRequest } from '../../composables/useRequest'
 import PagerBar from '../../components/ui/PagerBar.vue'
 import { fmtNum } from '../../lib/format'
 
@@ -9,8 +10,8 @@ const router = useRouter()
 // SS8: do'kon qatoriga bosilганда — do'kon batafsil sahifasiga o'tadi.
 const goShop = (shopId) => { if (shopId) router.push({ name: 'stores-detail', params: { id: shopId } }) }
 
-const loading = ref(false)
-const err = ref('')
+// Xato matni avvalgidek: backend xabari -> e.message -> standart matn (useRequest'ning errMessage'i emas).
+const apiErrorText = (fallback) => (e) => e?.response?.data?.message || e?.message || fallback
 const stats = ref(null)      // qarz-daftari
 const regions = ref(null)    // shops-by-region
 const sortKey = ref('berilgan')  // clickable drill-down: qaysi ko'rsatkich bo'yicha saralanadi
@@ -26,8 +27,6 @@ const SHOP_LIMIT = 10
 const shopRows = ref([])
 const shopTotal = ref(0)
 const shopPage = ref(1)
-const shopLoading = ref(false)
-const shopErr = ref('')
 const regionFilter = ref('')  // hudud kartasi bosilganda
 const SEARCH_DEBOUNCE_MS = 350
 const SEARCH_MAX_LEN = 100
@@ -49,30 +48,30 @@ function onSearchInput() {
 function clearSearch() { searchInput.value = ''; applySearch() }
 onBeforeUnmount(clearSearchTimer)
 
-let shopSeq = 0 // eski (kech kelgan) javob yangi holatni bosib ketmasin
-async function loadShops() {
-  const seq = ++shopSeq
-  shopLoading.value = true; shopErr.value = ''
-  try {
-    const res = await api.get('/dashboard/stats/qarz-daftari/shops', {
-      params: {
-        page: shopPage.value, limit: SHOP_LIMIT,
-        region: regionFilter.value || undefined,
-        currency: curFilter.value || undefined,
-        q: shopQuery.value || undefined,
-        sort: sortKey.value,
-      },
-    })
-    if (seq !== shopSeq) return
-    const d = res?.data?.data || {}
-    shopRows.value = d.items || []
-    shopTotal.value = Number(d.total || 0)
-  } catch (e) {
-    if (seq !== shopSeq) return
-    shopRows.value = []; shopTotal.value = 0
-    shopErr.value = e?.response?.data?.message || e?.message || 'Do‘konlarni yuklashda xatolik.'
-  } finally { if (seq === shopSeq) shopLoading.value = false }
-}
+const shopReq = useRequest(
+  ({ signal }) => getQarzShops({
+    signal,
+    params: {
+      page: shopPage.value, limit: SHOP_LIMIT,
+      region: regionFilter.value || undefined,
+      currency: curFilter.value || undefined,
+      q: shopQuery.value || undefined,
+      sort: sortKey.value,
+    },
+  }),
+  {
+    mapError: apiErrorText('Do‘konlarni yuklashda xatolik.'),
+    onSuccess(res) {
+      const d = res?.data?.data || {}
+      shopRows.value = d.items || []
+      shopTotal.value = Number(d.total || 0)
+    },
+    onError() { shopRows.value = []; shopTotal.value = 0 },
+  },
+)
+const shopLoading = shopReq.loading
+const shopErr = shopReq.error
+const loadShops = () => shopReq.run()
 function setShopPage(p) { shopPage.value = p; loadShops() }
 function refetchShops() { shopPage.value = 1; loadShops() }
 function pickRegion(name) {
@@ -83,22 +82,27 @@ function pickRegion(name) {
 function clearRegion() { regionFilter.value = ''; refetchShops() }
 const shopsBox = ref(null)
 
+const mainReq = useRequest(
+  ({ signal }) => Promise.all([
+    getQarzDaftari({ signal, params: { include_shops: 0 } }),
+    getShopsByRegion({ signal }),
+  ]),
+  {
+    mapError: apiErrorText('Ma‘lumotlarni yuklashda xatolik.'),
+    onSuccess([a, b]) {
+      stats.value = a?.data?.data || null
+      regions.value = b?.data?.data || null
+    },
+  },
+)
+const loading = mainReq.loading
+const err = mainReq.error
+
 let loadSeq = 0
 async function load() {
   const seq = ++loadSeq
-  loading.value = true; err.value = ''
-  try {
-    const [a, b] = await Promise.all([
-      api.get('/dashboard/stats/qarz-daftari', { params: { include_shops: 0 } }),
-      api.get('/dashboard/stats/shops-by-region'),
-    ])
-    if (seq !== loadSeq) return
-    stats.value = a?.data?.data || null
-    regions.value = b?.data?.data || null
-  } catch (e) {
-    if (seq !== loadSeq) return
-    err.value = e?.response?.data?.message || e?.message || 'Ma‘lumotlarni yuklashda xatolik.'
-  } finally { if (seq === loadSeq) loading.value = false }
+  await mainReq.run()
+  if (seq !== loadSeq) return // yangiroq load() bor — do'konlarni u yuklaydi
   shopPage.value = 1
   await loadShops()
 }

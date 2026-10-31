@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import api from '../../lib/axios'
+import { getMobileBalance } from '../../api/stats'
 import { useRequest } from '../../composables/useRequest'
 import { fmtNum, fmtDate as fmtDateF, fmtDateTime } from '../../lib/format'
 
@@ -17,7 +17,7 @@ const filtered = computed(() => {
 })
 
 const req = useRequest(
-  ({ signal }) => api.get('/dashboard/stats/mobile-balance', { signal }),
+  ({ signal }) => getMobileBalance({ signal }),
   { onSuccess: (res) => { data.value = res?.data?.data || res?.data || null } },
 )
 const loading = req.loading

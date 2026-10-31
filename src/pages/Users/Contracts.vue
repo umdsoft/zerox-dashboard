@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
-import api from '../../lib/axios'
+import { getUserSummary } from '../../api/users'
+import { loadUser } from '../../composables/useUser'
 import { fmtDate, fmtNum } from '../../lib/format'
 import { useRequest } from '../../composables/useRequest'
 import StateBlock from '../../components/ui/StateBlock.vue'
@@ -11,21 +12,25 @@ const route = useRoute()
 
 const user = ref(null)
 
-const nearDebitor = ref([])
-const nearCreditor = ref([])
+// Har tomon (debitor / kreditor) uchun bitta normallashgan blok; qolgani computed.
+const blocks = { debitor: ref(normalizeBlock(null)), creditor: ref(normalizeBlock(null)) }
+// "Yaqin muddat" ro'yxatida ko'rsatilgan valyuta: yuklanganda UZS, tab bosilganda tanlangan.
+// (Tab tugmasi holati tabLeft/tabRight'da — avvalgidek yuklashda tiklanmaydi.)
+const shownCur = { debitor: ref('UZS'), creditor: ref('UZS') }
 
-const debitorData = ref([])
-const creditorData = ref([])
-
-const debitorUsd = ref(null)
-const debitorUzs = ref(null)
-const creditorUsd = ref(null)
-const creditorUzs = ref(null)
-
-const expiredDebitorUsd = ref(null)
-const expiredDebitorUzs = ref(null)
-const expiredCreditorUsd = ref(null)
-const expiredCreditorUzs = ref(null)
+function useSide(side) {
+  const block = blocks[side]
+  const pick = (arr, cur) => arr.find((i) => i.currency === cur) || null
+  return {
+    rows: computed(() => block.value.five.filter((i) => i.currency === shownCur[side].value)),
+    usd: computed(() => pick(block.value.data, 'USD')),
+    uzs: computed(() => pick(block.value.data, 'UZS')),
+  }
+}
+const debitor = useSide('debitor')
+const creditor = useSide('creditor')
+const { rows: debitorData, usd: debitorUsd, uzs: debitorUzs } = debitor
+const { rows: creditorData, usd: creditorUsd, uzs: creditorUzs } = creditor
 
 const tabLeft = ref(1)
 const tabRight = ref(1)
@@ -71,40 +76,29 @@ function normalizeBlock(d) {
 }
 
 function applySide(side, block) {
-  const B = normalizeBlock(block)
-  const pick = (arr, cur) => arr.find((i) => i.currency === cur) || null
-  if (side === 'debitor') {
-    nearDebitor.value = B.five
-    debitorData.value = B.five.filter((i) => i.currency === 'UZS')
-    debitorUsd.value = pick(B.data, 'USD'); debitorUzs.value = pick(B.data, 'UZS')
-    expiredDebitorUsd.value = pick(B.expired, 'USD'); expiredDebitorUzs.value = pick(B.expired, 'UZS')
-  } else {
-    nearCreditor.value = B.five
-    creditorData.value = B.five.filter((i) => i.currency === 'UZS')
-    creditorUsd.value = pick(B.data, 'USD'); creditorUzs.value = pick(B.data, 'UZS')
-    expiredCreditorUsd.value = pick(B.expired, 'USD'); expiredCreditorUzs.value = pick(B.expired, 'UZS')
-  }
+  blocks[side].value = normalizeBlock(block)
+  shownCur[side].value = 'UZS'
 }
 
 function handleTab(side, value) {
   const cur = value === 1 ? 'UZS' : 'USD'
   if (side === 'left') {
     tabLeft.value = value
-    debitorData.value = (nearDebitor.value || []).filter((i) => i.currency === cur)
+    shownCur.debitor.value = cur
   } else {
     tabRight.value = value
-    creditorData.value = (nearCreditor.value || []).filter((i) => i.currency === cur)
+    shownCur.creditor.value = cur
   }
 }
 
 /* ---------- loader ---------- */
 // 1) foydalanuvchi (bitta aniq endpoint), 2) yangi /dashboard/user/:id/summary (avval /home/by/:id taxmin qilinardi)
 async function fetchAll({ signal }) {
-  const uRes = await api.get(`/user/admin/user/${route.params.id}`, { signal })
+  const uRes = await loadUser(route.params.id, { signal })
   const u = normalizeUser(uRes)
   const key = u.id ?? u.uid
   if (!key) throw new Error('Foydalanuvchi ID aniqlanmadi')
-  const sRes = await api.get(`/dashboard/user/${key}/summary`, { signal })
+  const sRes = await getUserSummary(key, { signal })
   const body = sRes?.data?.data ?? sRes?.data ?? {}
   return { u, body }
 }

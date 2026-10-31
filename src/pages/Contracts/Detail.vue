@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import api from '../../lib/axios'
+import { getContract } from '../../api/contracts'
 import { pdfUrl as buildPdfUrl } from '../../lib/config'
 import { fmtDate as formatDate, fmtNum } from '../../lib/format'
 import { useRequest } from '../../composables/useRequest'
@@ -146,7 +146,7 @@ function normalizeAct(a) {
 }
 
 const req = useRequest(
-  ({ signal }) => api.get(`/contract/admin/contract/${route.params.id}`, { signal }),
+  ({ signal }) => getContract(route.params.id, { signal }),
   {
     onSuccess(res) {
       const payload = res?.data?.data ?? res?.data ?? res ?? {}

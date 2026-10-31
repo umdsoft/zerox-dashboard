@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import api from '../../lib/axios'
+import { getContractReport } from '../../api/contracts'
 import { pdfUrl } from '../../lib/config'
 import { fmtDate, fmtMoney } from '../../lib/format'
 import { usePagedList } from '../../composables/useRequest'
@@ -56,7 +56,7 @@ function statusBadge(v) {
 
 const list = usePagedList(
   ({ signal }, { page, limit }) =>
-    api.get(`/dashboard/con/${props.endpoint}/${route.params.id}`, { signal, params: { page, limit, type: props.type } }),
+    getContractReport(props.endpoint, route.params.id, { signal, params: { page, limit, type: props.type } }),
   { map: mapRow },
 )
 const { rows, page, limit, total, loading, error } = list
