@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../../lib/axios'
 import PagerBar from '../../components/ui/PagerBar.vue'
+import { fmtNum } from '../../lib/format'
 
 const router = useRouter()
 // SS8: do'kon qatoriga bosilганда — do'kon batafsil sahifasiga o'tadi.
@@ -15,7 +16,7 @@ const regions = ref(null)    // shops-by-region
 const sortKey = ref('berilgan')  // clickable drill-down: qaysi ko'rsatkich bo'yicha saralanadi
 const curFilter = ref('')    // valyuta filtri (bo'sh = hammasi)
 
-const fmt = (n) => new Intl.NumberFormat('uz-UZ').format(Number(n || 0))
+const fmt = fmtNum
 const setSort = (k) => { sortKey.value = k; refetchShops() }
 
 const currencies = computed(() => (stats.value?.totals || []).map((t) => t.currency))
@@ -149,7 +150,7 @@ const metricLabel = { berilgan: 'Berilgan', qaytarilgan: 'Qaytarilgan', qoldiq: 
           </button>
         </div>
       </div>
-      <p class="text-xs text-slate-400 -mt-2">Ko‘rsatkich ustiga bosing — pastdagi do‘kon kesimi shu bo‘yicha saralanadi.</p>
+      <p class="text-xs text-slate-500 -mt-2">Ko‘rsatkich ustiga bosing — pastdagi do‘kon kesimi shu bo‘yicha saralanadi.</p>
 
       <!-- Hudud kesimida do'konlar -->
       <div class="rounded-xl border border-slate-200 bg-white overflow-hidden" v-if="regions">
@@ -192,7 +193,7 @@ const metricLabel = { berilgan: 'Berilgan', qaytarilgan: 'Qaytarilgan', qoldiq: 
               placeholder="Do‘kon nomi, ID yoki egasi telefoni"
               class="w-full border rounded-lg pl-3 pr-9 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300"
               @input="onSearchInput" @keyup.enter="applySearch" @keyup.esc="clearSearch" />
-            <button v-if="searchInput" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full text-slate-400 hover:bg-slate-100"
+            <button v-if="searchInput" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full text-slate-500 hover:bg-slate-100"
               title="Tozalash" @click="clearSearch">×</button>
           </div>
         </div>
@@ -218,7 +219,7 @@ const metricLabel = { berilgan: 'Berilgan', qaytarilgan: 'Qaytarilgan', qoldiq: 
               <tr v-for="r in shopRows" :key="r.shop_id + '-' + r.currency" class="hover:bg-indigo-50 cursor-pointer transition" @click="goShop(r.shop_id)" title="Do‘kon tafsilotini ochish">
                 <td class="px-4 py-3 font-medium text-indigo-700">
                   <span class="hover:underline">{{ r.nomi }}</span>
-                  <span v-if="r.owner_phone" class="block text-xs font-normal text-slate-400">{{ r.owner_phone }}</span>
+                  <span v-if="r.owner_phone_masked || r.owner_phone" class="block text-xs font-normal text-slate-500">{{ r.owner_phone_masked || r.owner_phone }}</span>
                 </td>
                 <td class="px-4 py-3 text-slate-500">{{ r.region }}</td>
                 <td class="px-4 py-3">{{ r.currency }}</td>
@@ -235,14 +236,14 @@ const metricLabel = { berilgan: 'Berilgan', qaytarilgan: 'Qaytarilgan', qoldiq: 
                 <td class="px-4 py-3 text-right text-slate-500">{{ fmt(r.qarz_count) }}</td>
               </tr>
               <tr v-if="shopErr"><td colspan="12" class="px-4 py-6 text-center text-rose-600">{{ shopErr }}</td></tr>
-              <tr v-else-if="shopLoading && !shopRows.length"><td colspan="12" class="px-4 py-6 text-center text-slate-400">Yuklanmoqda…</td></tr>
+              <tr v-else-if="shopLoading && !shopRows.length"><td colspan="12" class="px-4 py-6 text-center text-slate-500">Yuklanmoqda…</td></tr>
               <tr v-else-if="!shopRows.length && shopQuery"><td colspan="12" class="px-4 py-6 text-center text-slate-500">Hech narsa topilmadi — «{{ shopQuery }}»</td></tr>
-              <tr v-else-if="!shopRows.length"><td colspan="12" class="px-4 py-6 text-center text-slate-400">Ma‘lumot yo‘q</td></tr>
+              <tr v-else-if="!shopRows.length"><td colspan="12" class="px-4 py-6 text-center text-slate-500">Ma‘lumot yo‘q</td></tr>
             </tbody>
           </table>
         </div>
         <PagerBar :page="shopPage" :limit="SHOP_LIMIT" :total="shopTotal" :disabled="shopLoading" @change="setShopPage" />
-        <p class="px-4 pb-3 text-xs text-slate-400">Qator = do‘kon × valyuta: ikki valyutada qarzi bor do‘kon 2 qatorda ko‘rinadi, sahifalash qatorlar bo‘yicha.</p>
+        <p class="px-4 pb-3 text-xs text-slate-500">Qator = do‘kon × valyuta: ikki valyutada qarzi bor do‘kon 2 qatorda ko‘rinadi, sahifalash qatorlar bo‘yicha.</p>
       </div>
     </template>
   </div>

@@ -1,29 +1,25 @@
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import DataTable from '../../components/ui/DataTable.vue'
 import Swal from 'sweetalert2'
+import PagerBar from '../../components/ui/PagerBar.vue'
 import api from '../../lib/axios'
+import { usePagedList } from '../../composables/useRequest'
+import { useAuthStore } from '../../stores/auth'
+import { errMessage } from '../../lib/format'
 
-const loading = ref(false)
+// Versiya boshqaruvi faqat super admin uchun (viewer/operator ma'lumotni ko'radi, o'zgartira olmaydi)
+const auth = useAuthStore()
+const canEdit = computed(() => auth.can('version'))
+
 const submitting = ref(false)
 
-const page = ref(1)
-const limit = ref(10)
-const total = ref(0)
-const query = ref('')
-
-const sortKey = ref(null)
-const sortDir = ref(null)
-
-const items = ref([])
-
-const columns = [
-  { label: '№', key: '__i', width: 64 },
-  { label: 'TIZIM', key: 'type', sortable: true },
-  { label: 'ILOVA VERSIYASI', key: 'version', sortable: true },
-  { label: "O'ZGARISH", key: 'desc', sortable: true },
-  { label: '', key: '__actions', width: 200 },
-]
+// Saralash backendda qo'llab-quvvatlanmaydi - DataTable faqat joriy sahifani saralaydi
+const list = usePagedList(({ signal }, { page, limit }) =>
+  api.get('/version/for-admin', { signal, params: { page, limit } }),
+)
+const { page, limit, total, loading, error } = list
+const items = list.rows
 
 // jadval uchun
 const rows = computed(() => {
@@ -38,53 +34,8 @@ const rows = computed(() => {
   }))
 })
 
-function normalize(res) {
-  const raw = res?.data ?? res
-  const list = Array.isArray(raw) ? raw
-    : Array.isArray(raw?.data) ? raw.data
-    : Array.isArray(raw?.items) ? raw.items
-    : []
-  const t = Number(raw?.count) || Number(raw?.total) || list.length
-  return { list, total: t || 0 }
-}
-
-async function loadList() {
-  loading.value = true
-  try {
-    const res = await api.get('/version/for-admin', {
-      params: {
-        page: page.value,
-        limit: limit.value,
-        search: query.value || undefined,
-        sort_key: sortKey.value || undefined,
-        sort_dir: sortDir.value || undefined,
-      }
-    })
-    const { list, total: t } = normalize(res)
-    items.value = list
-    total.value = t
-  } catch (e) {
-    items.value = []
-    total.value = 0
-    Swal.fire('Xatolik!', "Ma'lumotlarni yuklashda xato yuz berdi.", 'error')
-  } finally {
-    loading.value = false
-  }
-}
-
-watch([page, limit], loadList)
+const loadList = () => list.load()
 onMounted(loadList)
-
-function onSortChange({ key, dir }) {
-  sortKey.value = key
-  sortDir.value = dir
-  page.value = 1
-  loadList()
-}
-function onRefresh() {
-  page.value = 1
-  loadList()
-}
 
 // --- modal/CRUD
 const isFormModalActive = ref(false)
@@ -168,7 +119,7 @@ async function save() {
     closeForm()
     await loadList()
   } catch (e) {
-    Swal.fire('Xatolik!', "Ma'lumotni saqlashda xato yuz berdi.", 'error')
+    Swal.fire('Xatolik!', errMessage(e, "Ma'lumotni saqlashda xato yuz berdi."), 'error')
   } finally {
     submitting.value = false
   }
@@ -182,7 +133,7 @@ async function executeDelete(){
     isDeleteModalActive.value = false
     await loadList()
   } catch (e) {
-    Swal.fire('Xatolik!', "Ma'lumotni o'chirishda xato yuz berdi.", 'error')
+    Swal.fire('Xatolik!', errMessage(e, "Ma'lumotni o'chirishda xato yuz berdi."), 'error')
   }
 }
 </script>
@@ -193,6 +144,8 @@ async function executeDelete(){
     <!-- Yuqori panel: faqat “Qo‘shish” tugmasi -->
     <div class="flex items-center justify-end mb-4">
       <button
+        v-if="canEdit"
+        type="button"
         @click.prevent="openAdd()"
         class="flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-200"
       >
@@ -211,21 +164,16 @@ async function executeDelete(){
         { label: '', key: '__actions', width: 200 },
       ]"
       :rows="rows"
-      :total="total"
       :loading="loading"
-      v-model:page="page"
-      v-model:limit="limit"
-      v-model:query="query"
-      :plain="true"           
+      :error="error"
       class="w-full"
-      @sort-change="onSortChange"
-      @refresh="onRefresh"
+      @retry="list.retry()"
     >
       <template #title>
         <h3 class="text-base font-semibold text-slate-800">Ilova versiyalari ({{ total }})</h3>
       </template>
       <template #description>
-        <p class="text-sm text-slate-500">Android/iOS uchun chiqarilgan versiyalar ro‘yxati.</p>
+        <p class="text-sm text-slate-600">Android/iOS uchun chiqarilgan versiyalar ro‘yxati.<template v-if="!canEdit"> Tahrirlash faqat super admin uchun.</template></p>
       </template>
 
       <!-- № -->
@@ -241,7 +189,7 @@ async function executeDelete(){
       <!-- 08.10: majburiy yangilanish chegarasi -->
       <template #cell-min_version="{ row }">
         <span v-if="row.min_version" class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-semibold">{{ row.min_version }}</span>
-        <span v-else class="text-slate-400">—</span>
+        <span v-else class="text-slate-500">—</span>
       </template>
 
       <!-- O'zgarish (truncate) -->
@@ -251,14 +199,16 @@ async function executeDelete(){
 
       <!-- Actions -->
       <template #cell-__actions="{ row }">
-        <div class="flex flex-wrap gap-2 justify-end">
+        <div v-if="canEdit" class="flex flex-wrap gap-2 justify-end">
           <button
+            type="button"
             class="flex items-center px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200"
             @click="openEdit(row)"
           >
             <fa icon="pen" class="mr-1" /> O'zgartirish
           </button>
           <button
+            type="button"
             class="flex items-center px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition duration-200"
             @click="confirmDelete(row.id ?? row._id)"
           >
@@ -267,6 +217,7 @@ async function executeDelete(){
         </div>
       </template>
     </DataTable>
+    <PagerBar :page="page" :limit="limit" :total="total" :disabled="loading" @change="list.setPage" />
   </div>
 
   <!-- ADD/EDIT MODAL -->
@@ -276,7 +227,7 @@ async function executeDelete(){
       class="absolute inset-0 bg-black bg-opacity-40 transition-opacity duration-300"
     ></div>
 
-    <div class="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+    <div class="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6" role="dialog" aria-modal="true" aria-label="Versiya ma’lumotlari">
       <h2 class="text-2xl font-semibold mb-6 text-gray-800">
         {{ method === 'add' ? "Yangi versiya qo'shish" : 'Versiyani tahrirlash' }}
       </h2>
@@ -326,8 +277,8 @@ async function executeDelete(){
     <div class="relative bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
       <h5 class="text-xl font-semibold mb-6">Ma'lumot o'chirilsinmi?</h5>
       <div class="flex justify-center gap-3">
-        <button @click="isDeleteModalActive = false" class="px-4 py-2 bg-gray-300 rounded">Yo'q</button>
-        <button @click="executeDelete" class="px-4 py-2 bg-red-500 text-white rounded">Ha</button>
+        <button type="button" @click="isDeleteModalActive = false" class="px-4 py-2 bg-gray-300 rounded">Yo'q</button>
+        <button type="button" @click="executeDelete" class="px-4 py-2 bg-red-500 text-white rounded">Ha</button>
       </div>
     </div>
   </div>

@@ -10,7 +10,7 @@ const props = defineProps({
     <div class="space-y-2 p-6">
       <div class="flex items-center justify-between">
         <div>
-          <p v-if="props.subtitle" class="text-xs font-medium uppercase tracking-wide text-slate-400">
+          <p v-if="props.subtitle" class="text-xs font-medium uppercase tracking-wide text-slate-500">
             {{ props.subtitle }}
           </p>
           <h3 v-if="props.title" class="text-lg font-semibold text-slate-800">{{ props.title }}</h3>

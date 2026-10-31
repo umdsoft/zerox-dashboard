@@ -1,37 +1,29 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '../../lib/axios'
+import { useRequest } from '../../composables/useRequest'
+import { fmtNum, fmtDate as fmtDateF, fmtDateTime } from '../../lib/format'
 
-const loading = ref(false)
-const err = ref('')
 const data = ref(null)
 const q = ref('')
 
-const fmt = (n) => new Intl.NumberFormat('uz-UZ').format(Number(n || 0))
-const fmtDate = (d) => {
-  if (!d) return '—'
-  const dt = new Date(d)
-  if (isNaN(dt)) return '—'
-  const p = (x) => String(x).padStart(2, '0')
-  return `${p(dt.getDate())}.${p(dt.getMonth() + 1)}.${dt.getFullYear()}`
-}
+const fmt = fmtNum
+const fmtDate = (d) => fmtDateF(d, { empty: '—' })
 
 const filtered = computed(() => {
   const list = data.value?.users || []
   const s = q.value.trim().toLowerCase()
   if (!s) return list
-  return list.filter((u) => (u.fio || '').toLowerCase().includes(s) || (u.phone || '').includes(s))
+  return list.filter((u) => (u.fio || '').toLowerCase().includes(s) || (u.phone_masked || u.phone || '').includes(s))
 })
 
-async function load() {
-  loading.value = true; err.value = ''
-  try {
-    const res = await api.get('/dashboard/stats/revenue-contributors')
-    data.value = res?.data?.data || res?.data || null
-  } catch (e) {
-    err.value = e?.response?.data?.message || e?.message || 'Ma‘lumotlarni yuklashda xatolik.'
-  } finally { loading.value = false }
-}
+const req = useRequest(
+  ({ signal }) => api.get('/dashboard/stats/revenue-contributors', { signal }),
+  { onSuccess: (res) => { data.value = res?.data?.data || res?.data || null } },
+)
+const loading = req.loading
+const err = req.error
+const load = () => req.run()
 onMounted(load)
 </script>
 
@@ -42,17 +34,17 @@ onMounted(load)
         <h1 class="text-2xl font-semibold text-slate-800">Jami tushum — hissa qo‘shganlar</h1>
         <p class="text-sm text-slate-500">Platforma tushumiga kim qancha to‘lagan (to‘lovlar tarixi bo‘yicha).</p>
       </div>
-      <button class="px-3 py-2 rounded-lg border text-sm text-slate-600 hover:bg-slate-50" @click="load">Yangilash</button>
+      <button type="button" class="px-3 py-2 rounded-lg border text-sm text-slate-600 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-60" :disabled="loading" @click="load">Yangilash</button>
     </div>
 
     <div v-if="loading" class="text-slate-500 text-sm py-8 text-center">Yuklanmoqda…</div>
-    <div v-else-if="err" class="text-rose-600 text-sm py-8 text-center">{{ err }}</div>
+    <div v-else-if="err" class="flex flex-wrap items-center justify-center gap-3 py-8 text-sm text-rose-700" role="alert"><span>{{ err }}</span><button type="button" class="rounded-lg border border-rose-300 bg-white px-3 py-1.5 font-medium hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500" @click="req.retry()">Qayta urinish</button></div>
 
     <template v-else-if="data">
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div class="rounded-xl border border-slate-200 bg-white p-5">
           <p class="text-sm text-slate-500">Jami tushum</p>
-          <p class="mt-1 text-2xl font-semibold text-amber-600">{{ fmt(data.total) }} <span class="text-base text-slate-400">UZS</span></p>
+          <p class="mt-1 text-2xl font-semibold text-amber-600">{{ fmt(data.total) }} <span class="text-base text-slate-500">UZS</span></p>
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-5">
           <p class="text-sm text-slate-500">To‘lovlar soni</p>
@@ -83,14 +75,14 @@ onMounted(load)
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-for="(u, i) in filtered" :key="i" class="hover:bg-slate-50">
-                <td class="px-4 py-3 text-slate-400">{{ i + 1 }}</td>
+                <td class="px-4 py-3 text-slate-500">{{ i + 1 }}</td>
                 <td class="px-4 py-3 font-medium text-slate-800">{{ u.fio }}</td>
-                <td class="px-4 py-3 font-mono">{{ u.phone }}</td>
+                <td class="px-4 py-3 font-mono">{{ u.phone_masked || u.phone }}</td>
                 <td class="px-4 py-3 text-right text-slate-500">{{ fmt(u.pay_count) }}</td>
                 <td class="px-4 py-3 text-right font-semibold text-amber-600">{{ fmt(u.total) }}</td>
                 <td class="px-4 py-3 text-right text-slate-500">{{ fmtDate(u.last_paid) }}</td>
               </tr>
-              <tr v-if="!filtered.length"><td colspan="6" class="px-4 py-6 text-center text-slate-400">Ma‘lumot yo‘q</td></tr>
+              <tr v-if="!filtered.length"><td colspan="6" class="px-4 py-6 text-center text-slate-500">Ma‘lumot yo‘q</td></tr>
             </tbody>
           </table>
         </div>

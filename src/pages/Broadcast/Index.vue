@@ -7,6 +7,8 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import Swal from 'sweetalert2'
 import api from '../../lib/axios'
+import { fmtDateTime, errMessage } from '../../lib/format'
+import { toastErr } from '../../lib/toast'
 
 const MAX_TEXT = 3500
 const MAX_TITLE = 64
@@ -37,6 +39,7 @@ const history = ref([])
 const activeJobs = ref([])
 const sending = ref(false)
 const loadingHistory = ref(false)
+const loadError = ref('')
 let pollTimer = null
 
 const tgAvailable = computed(() => !!audience.value?.telegram_available)
@@ -55,8 +58,9 @@ async function loadAudience() {
     const { data } = await api.get('/dashboard/broadcasts/audience')
     audience.value = data?.data || null
     if (!audience.value?.telegram_available) channels.value.telegram = false
-  } catch (_) {
+  } catch (e) {
     audience.value = null
+    loadError.value = errMessage(e, 'Auditoriya sonini yuklab bo‘lmadi.')
   }
 }
 
@@ -66,8 +70,9 @@ async function loadHistory() {
     const { data } = await api.get('/dashboard/broadcasts', { params: { limit: 30 } })
     history.value = data?.data?.items || []
     activeJobs.value = data?.data?.active_jobs || []
-  } catch (_) {
-    /* jim — keyingi so'rovda qayta urinadi */
+    loadError.value = ''
+  } catch (e) {
+    loadError.value = errMessage(e, 'Tarixni yuklab bo‘lmadi.')
   } finally {
     loadingHistory.value = false
   }
@@ -86,7 +91,9 @@ async function send() {
   if (channels.value.push) parts.push(`Ilova push: ${countFor('push', segment.value)} ta`)
   const ok = await Swal.fire({
     title: 'Xabar yuborilsinmi?',
-    html: `${parts.join('<br>')}<br><br><span style="color:#64748b">Yuborilgan xabarni qaytarib olib bo'lmaydi.</span>`,
+    // text (html emas): qiymatlar matn sifatida chiqadi, qatorlar CSS orqali ajratiladi
+    text: `${parts.join('\n')}\n\nYuborilgan xabarni qaytarib bo‘lmaydi.`,
+    customClass: { htmlContainer: 'whitespace-pre-line' },
     icon: 'question',
     showCancelButton: true,
     confirmButtonText: 'Ha, yuborish',
@@ -104,7 +111,12 @@ async function send() {
     })
     const errs = Object.entries(data?.data || {}).filter(([, v]) => v && v.error)
     if (errs.length) {
-      Swal.fire('Diqqat', errs.map(([ch, v]) => `${ch === 'push' ? 'Push' : 'Telegram'}: ${v.error === 'empty' ? "qabul qiluvchi yo'q" : v.error}`).join('<br>'), 'warning')
+      Swal.fire({
+        title: 'Diqqat',
+        text: errs.map(([ch, v]) => `${ch === 'push' ? 'Push' : 'Telegram'}: ${v.error === 'empty' ? 'qabul qiluvchi yo‘q' : v.error}`).join('\n'),
+        icon: 'warning',
+        customClass: { htmlContainer: 'whitespace-pre-line' },
+      })
     } else {
       Swal.fire({ title: 'Yuborish boshlandi', text: 'Jarayon pastda ko‘rinadi.', icon: 'success', timer: 1800, showConfirmButton: false })
       text.value = ''
@@ -123,12 +135,12 @@ async function stop() {
     showCancelButton: true, confirmButtonText: "Ha, to'xtatish", cancelButtonText: 'Yo‘q', confirmButtonColor: '#e11d48',
   })
   if (!ok.isConfirmed) return
-  try { await api.post('/dashboard/broadcasts/stop') } catch (_) { /* jim */ }
+  try { await api.post('/dashboard/broadcasts/stop') } catch (e) { toastErr(errMessage(e, 'To‘xtatib bo‘lmadi.')) }
   loadHistory()
 }
 
 const pct = (j) => (j.total ? Math.min(100, Math.round((j.done / j.total) * 100)) : 0)
-const fmtDate = (v) => (v ? new Date(v).toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—')
+const fmtDate = (v) => fmtDateTime(v, { empty: '—' })
 const channelLabel = (c) => (c === 'push' ? 'Ilova push' : 'Telegram')
 
 onMounted(() => { loadAudience(); loadHistory() })
@@ -137,6 +149,10 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
 
 <template>
   <div class="space-y-6">
+    <div v-if="loadError" class="flex flex-wrap items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700" role="alert">
+      <span>{{ loadError }}</span>
+      <button type="button" class="rounded-lg border border-rose-300 bg-white px-3 py-1 font-medium hover:bg-rose-100" @click="loadAudience(); loadHistory()">Qayta urinish</button>
+    </div>
     <div>
       <h1 class="text-2xl font-semibold text-slate-900">Hammaga xabar yuborish</h1>
       <p class="mt-1 text-sm text-slate-500">Bitta xabar Telegram bot obunachilariga va ilova foydalanuvchilariga push-xabarnoma sifatida boradi.</p>
@@ -160,7 +176,7 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
       <!-- Xabar tuzish -->
       <section class="space-y-5 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200/60">
         <div>
-          <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Qayerga</p>
+          <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Qayerga</p>
           <div class="grid gap-3 sm:grid-cols-2">
             <button type="button" :disabled="!tgAvailable" @click="channels.telegram = !channels.telegram"
               :class="['flex items-start gap-3 rounded-xl border p-4 text-left transition', channels.telegram && tgAvailable ? 'border-sky-300 bg-sky-50 ring-1 ring-sky-200' : 'border-slate-200 hover:border-slate-300', !tgAvailable && 'cursor-not-allowed opacity-60']">
@@ -187,27 +203,27 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
         </div>
 
         <div>
-          <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Til</p>
+          <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Til</p>
           <div class="flex flex-wrap gap-2">
             <button v-for="s in SEGMENTS" :key="s.key" type="button" @click="segment = s.key"
               :class="['rounded-full px-3.5 py-1.5 text-sm font-medium transition', segment === s.key ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']">
               {{ s.label }}
             </button>
           </div>
-          <p class="mt-2 text-xs text-slate-400">Xabar yozilgan tilda ketadi — til tanlovi faqat kimga yuborilishini belgilaydi.</p>
+          <p class="mt-2 text-xs text-slate-500">Xabar yozilgan tilda ketadi — til tanlovi faqat kimga yuborilishini belgilaydi.</p>
         </div>
 
         <div v-if="channels.push">
-          <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-400" for="bc-title">Push sarlavhasi</label>
+          <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500" for="bc-title">Push sarlavhasi</label>
           <input id="bc-title" v-model="title" :maxlength="MAX_TITLE" placeholder="ZeroX"
             class="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-indigo-400 focus:ring-indigo-400" />
         </div>
 
         <div>
-          <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-400" for="bc-text">Xabar matni</label>
+          <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500" for="bc-text">Xabar matni</label>
           <textarea id="bc-text" v-model="text" rows="7" :maxlength="MAX_TEXT" placeholder="Masalan: Hurmatli foydalanuvchilar! Ilovaning yangi versiyasi chiqdi…"
             class="w-full resize-y rounded-xl border border-slate-200 px-4 py-3 text-sm leading-relaxed focus:border-indigo-400 focus:ring-indigo-400"></textarea>
-          <div class="mt-1 flex justify-between text-xs text-slate-400">
+          <div class="mt-1 flex justify-between text-xs text-slate-500">
             <span>Oddiy matn. Havolalar ishlaydi.</span>
             <span :class="['tabular-nums', textLen > MAX_TEXT - 200 ? 'font-semibold text-amber-600' : '']">{{ textLen }}/{{ MAX_TEXT }}</span>
           </div>
@@ -226,7 +242,7 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
 
       <!-- Ko'rinishi -->
       <aside class="space-y-4">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Qanday ko'rinadi</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Qanday ko'rinadi</p>
         <div v-if="channels.push" class="rounded-[28px] bg-gradient-to-b from-slate-700 to-slate-900 p-4 shadow-lg">
           <p class="mb-3 text-center text-xs font-medium text-white/70">Telefon ekrani</p>
           <div class="rounded-2xl bg-white/90 p-3 backdrop-blur">
@@ -273,7 +289,7 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
               <td class="px-4 py-3 text-right tabular-nums text-slate-500">{{ h.blocked }}</td>
               <td class="px-6 py-3 text-right tabular-nums text-rose-600">{{ h.failed }}</td>
             </tr>
-            <tr v-if="!history.length && !loadingHistory"><td colspan="8" class="px-6 py-10 text-center text-slate-400">Hali xabar yuborilmagan</td></tr>
+            <tr v-if="!history.length && !loadingHistory"><td colspan="8" class="px-6 py-10 text-center text-slate-500">Hali xabar yuborilmagan</td></tr>
           </tbody>
         </table>
       </div>

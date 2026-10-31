@@ -3,29 +3,19 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import api from '../../lib/axios'
 import { assetUrl, pdfUrl } from '../../lib/config'
+import { fmtDate, fmtUZS, errMessage } from '../../lib/format'
+import { useRequest } from '../../composables/useRequest'
+import { useAuthStore } from '../../stores/auth'
+import { toastOk, toastErr } from '../../lib/toast'
+import ReasonDialog from '../../components/ui/ReasonDialog.vue'
+import StateBlock from '../../components/ui/StateBlock.vue'
 // default avatar (fix for vite import)
 import defaultAvatar from '../../../assets/img/no-avatar.png'
 
 const route = useRoute()
-const loading = ref(false)
-const err = ref('')
+const auth = useAuthStore()
 const raw = ref(null)
 
-function fmtDate(val, withYear = false) {
-  if (!val) return ''
-  if (/^\d{2}\.\d{2}\.\d{4}$/.test(val)) return withYear ? `${val} yil` : val
-  const d = new Date(val); if (isNaN(d.getTime())) return ''
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yyyy = d.getFullYear()
-  const s = `${dd}.${mm}.${yyyy}`
-  return withYear ? `${s} yil` : s
-}
-function fmtMoney(n) {
-  if (n == null) return '0'
-  const num = typeof n === 'number' ? n : Number(String(n).replace(/[^\d.-]/g, ''))
-  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(isNaN(num) ? 0 : num)
-}
 const genderLabel = (g) => (Number(g) === 1 ? 'Erkak' : Number(g) === 2 ? 'Ayol' : '—')
 
 const user = computed(() => {
@@ -40,23 +30,28 @@ const user = computed(() => {
     middle_name: u.middle_name ?? '',
     full_name: [u.last_name, u.first_name, u.middle_name].filter(Boolean).join(' '),
     phone: u.phone ?? '',
-    brithday: u.brithday ? fmtDate(u.brithday, true) : '',
+    phone_masked: u.phone_masked ?? '',
+    brithday: u.brithday ? fmtDate(u.brithday, { yearWord: true }) : '',
     gender: u.gender,
     region: u.region ?? '',
     district: u.district ?? '',
     address: u.address ?? '',
+    address_masked: u.address_masked ?? '',
     contract_date: u.contract_date ? fmtDate(u.contract_date) : '',
     con_time: u.con_time ? String(u.con_time).slice(0, 5) : '',
     passport: u.passport ?? '',
+    passport_masked: u.passport_masked ?? '',
+    pinfl_masked: u.pinfl_masked ?? '',
     issued_by: u.issued_by ?? '',
-    issued_date: u.issued_date ? fmtDate(u.issued_date, true) : '',
-    expiry_date: u.expiry_date ? fmtDate(u.expiry_date, true) : '',
+    issued_date: u.issued_date ? fmtDate(u.issued_date, { yearWord: true }) : '',
+    expiry_date: u.expiry_date ? fmtDate(u.expiry_date, { yearWord: true }) : '',
     rating: u.rating ?? 0,
     balance: u.balance ?? 0,
     image: assetUrl(u.image),
     company: u.company ?? '',
     director: u.director ?? '',
-    stir: u.pinfl ?? '',
+    // STIR - alohida maydon (avval xato: JSHSHIR ko'rsatilardi). Maydon bo'lmasa qator yashiriladi.
+    stir: u.stir ?? u.inn ?? '',
   }
 })
 
@@ -72,6 +67,45 @@ const accountStatus = computed(() =>
 )
 
 // O'ng tomon — bo'limlangan ma'lumot qatorlari
+// ---- PII: maskalangan qiymat + sabab bilan ochish (operator+) ----
+const revealed = ref({})          // { phone: '+998...' } - faqat shu sahifa xotirasida
+const revealTarget = ref('')
+const revealBusy = ref(false)
+const revealError = ref('')
+const FIELD_LABELS = { phone: 'telefon raqamini', pinfl: 'JSHSHIRni', passport: 'pasport seriyasini', address: 'manzilni' }
+const canReveal = computed(() => auth.can('reveal'))
+
+async function doReveal(reason) {
+  revealBusy.value = true; revealError.value = ''
+  const field = revealTarget.value
+  try {
+    const id = user.value.id ?? route.params.id
+    const res = await api.post(`/dashboard/users/${id}/reveal`, { field, reason })
+    const value = res?.data?.value ?? res?.data?.data?.value
+    revealed.value = { ...revealed.value, [field]: value ?? '' }
+    revealTarget.value = ''
+    toastOk('Qiymat ochildi. Amal audit jurnaliga yozildi.')
+  } catch (e) {
+    const d = e?.response?.data || {}
+    if (d.code === 'too-many-reveals') {
+      const s = Number(d.retry_after || e?.response?.headers?.['retry-after'])
+      revealError.value = s > 0
+        ? `Ko‘rsatish limiti tugadi. ${s > 90 ? Math.ceil(s / 60) + ' daqiqadan' : s + ' soniyadan'} so‘ng urinib ko‘ring.`
+        : 'Ko‘rsatish limiti tugadi. Keyinroq urinib ko‘ring.'
+    } else if (d.code === 'audit-unavailable') {
+      revealError.value = 'Hozir ko‘rsatib bo‘lmaydi, keyinroq urinib ko‘ring'
+    } else {
+      revealError.value = errMessage(e, 'Qiymatni ochib bo‘lmadi.')
+    }
+    toastErr(revealError.value)
+  } finally {
+    revealBusy.value = false
+  }
+}
+function askReveal(field) { revealError.value = ''; revealTarget.value = field }
+const pii = (field, masked, plain) => revealed.value[field] ?? (masked || plain || '')
+const canRevealRow = (field) => canReveal.value && !(field in revealed.value)
+
 const personalRows = computed(() => [
   { label: 'Familiya', value: user.value.last_name || '—' },
   { label: 'Ismi', value: user.value.first_name || '—' },
@@ -80,14 +114,14 @@ const personalRows = computed(() => [
   { label: 'Jinsi', value: genderLabel(user.value.gender) },
 ])
 const contactRows = computed(() => [
-  { label: 'Telefon raqami', value: user.value.phone || '—' },
+  { label: 'Telefon raqami', value: pii('phone', user.value.phone_masked, user.value.phone) || '—', field: 'phone' },
   { label: 'Elektron pochta', value: '—' },
   { label: 'Viloyat / tuman', value: [user.value.region, user.value.district].filter(Boolean).join(', ') || '—' },
-  { label: 'Yashash manzili', value: user.value.address || '—' },
+  { label: 'Yashash manzili', value: pii('address', user.value.address_masked, user.value.address) || '—', field: 'address' },
 ])
 const passportRows = computed(() => [
-  { label: 'Pasport seriasi', value: user.value.passport || '—' },
-  { label: 'JSHSHIR', value: user.value.stir || '—' },
+  { label: 'Pasport seriasi', value: pii('passport', user.value.passport_masked, user.value.passport) || '—', field: 'passport' },
+  { label: 'JSHSHIR', value: pii('pinfl', user.value.pinfl_masked) || '—', field: 'pinfl' },
   { label: 'Kim tomonidan berilgan', value: user.value.issued_by || '—' },
   { label: 'Berilgan vaqti', value: user.value.issued_date || '—' },
   { label: 'Amal qilish muddati', value: user.value.expiry_date || '—' },
@@ -95,10 +129,10 @@ const passportRows = computed(() => [
 const legalRows = computed(() => [
   { label: 'Korxona nomi', value: user.value.company || '—' },
   { label: 'Rahbar', value: user.value.director || '—' },
-  { label: 'STIR', value: user.value.stir || '—' },
-  { label: 'Telefon raqami', value: user.value.phone || '—' },
+  ...(user.value.stir ? [{ label: 'STIR', value: user.value.stir }] : []),
+  { label: 'Telefon raqami', value: pii('phone', user.value.phone_masked, user.value.phone) || '—', field: 'phone' },
   { label: 'Elektron pochta', value: '—' },
-  { label: 'Yuridik manzil', value: user.value.address || '—' },
+  { label: 'Yuridik manzil', value: pii('address', user.value.address_masked, user.value.address) || '—', field: 'address' },
 ])
 const ofertaInfo = computed(() =>
   user.value.contract_date
@@ -106,35 +140,24 @@ const ofertaInfo = computed(() =>
     : '—'
 )
 
-async function load() {
-  const id = route.params.id
-  if (!id) { err.value = 'Noto‘g‘ri foydalanuvchi ID'; return }
-  loading.value = true; err.value = ''
-  try {
-    const res = await api.get(`/user/admin/user/${id}`)
-    raw.value = res?.data?.data ?? res?.data ?? res
-  } catch (e) {
-    err.value = e?.response?.data?.message || e?.message || 'Ma’lumotni yuklashda xatolik'
-  } finally {
-    loading.value = false
-  }
-}
+const req = useRequest(
+  ({ signal }) => api.get(`/user/admin/user/${route.params.id}`, { signal }),
+  { onSuccess: (res) => { raw.value = res?.data?.data ?? res?.data ?? res; revealed.value = {} } },
+)
+const loading = req.loading
+const err = req.error
+const load = () => (route.params.id ? req.run() : undefined)
 onMounted(load)
 watch(() => route.params.id, load)
 </script>
 
 <template>
-  <div class="p-4 md:p-6">
-    <div v-if="loading" class="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-500 shadow-sm">
-      Yuklanmoqda…
-    </div>
-    <div v-else-if="err" class="rounded-xl border border-rose-200 bg-rose-50 p-6 text-rose-700 shadow-sm">
-      {{ err }}
-    </div>
+  <div>
+    <StateBlock v-if="loading || err" :loading="loading" :error="err" @retry="req.retry()" />
 
-    <div v-else-if="user" class="grid gap-6 lg:grid-cols-12">
+    <div v-else-if="raw" class="grid gap-6 xl:grid-cols-12">
       <!-- ================= LEFT: Profil ================= -->
-      <aside class="lg:col-span-4">
+      <aside class="xl:col-span-4">
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <!-- Gradient header -->
           <div class="h-20 bg-gradient-to-r from-indigo-500 to-violet-500"></div>
@@ -167,7 +190,7 @@ watch(() => route.params.id, load)
                   <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9v9a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-15A2.25 2.25 0 0 0 2.25 9Zm13.5 6h3" /></svg>
                   Mobil hisob
                 </span>
-                <span class="text-sm font-bold text-emerald-700">{{ fmtMoney(user.balance) }} UZS</span>
+                <span class="text-sm font-bold text-emerald-700">{{ fmtUZS(user.balance) }}</span>
               </div>
             </div>
 
@@ -179,7 +202,7 @@ watch(() => route.params.id, load)
                 Qarz shartnomalari
               </RouterLink>
 
-              <RouterLink :to="`/users/${user.id}/logins`"
+              <RouterLink v-if="auth.can('loginArchive')" :to="`/users/${user.id}/logins`"
                 class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold !text-slate-700 no-underline shadow-sm transition duration-200 hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" /></svg>
                 Kirishlar arxivi
@@ -196,7 +219,7 @@ watch(() => route.params.id, load)
       </aside>
 
       <!-- ================= RIGHT: Ma'lumotlar ================= -->
-      <section class="space-y-6 lg:col-span-8">
+      <section class="space-y-6 xl:col-span-8">
         <!-- ===== JISMONIY ===== -->
         <template v-if="user.type === 2">
           <!-- Shaxsiy ma'lumotlar -->
@@ -210,7 +233,10 @@ watch(() => route.params.id, load)
             <dl class="divide-y divide-slate-100">
               <div v-for="r in personalRows" :key="r.label" class="grid grid-cols-3 gap-4 px-6 py-3">
                 <dt class="text-sm text-slate-500">{{ r.label }}</dt>
-                <dd class="col-span-2 text-sm font-medium text-slate-800 break-words">{{ r.value }}</dd>
+                <dd class="col-span-2 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-800 break-words">
+                  <span>{{ r.value }}</span>
+                  <button v-if="r.field && canRevealRow(r.field)" type="button" class="rounded-lg border border-slate-200 px-2 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" :aria-label="`${r.label}ni ko‘rsatish`" @click="askReveal(r.field)">Ko‘rsatish</button>
+                </dd>
               </div>
             </dl>
           </div>
@@ -226,7 +252,10 @@ watch(() => route.params.id, load)
             <dl class="divide-y divide-slate-100">
               <div v-for="r in contactRows" :key="r.label" class="grid grid-cols-3 gap-4 px-6 py-3">
                 <dt class="text-sm text-slate-500">{{ r.label }}</dt>
-                <dd class="col-span-2 text-sm font-medium text-slate-800 break-words">{{ r.value }}</dd>
+                <dd class="col-span-2 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-800 break-words">
+                  <span>{{ r.value }}</span>
+                  <button v-if="r.field && canRevealRow(r.field)" type="button" class="rounded-lg border border-slate-200 px-2 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" :aria-label="`${r.label}ni ko‘rsatish`" @click="askReveal(r.field)">Ko‘rsatish</button>
+                </dd>
               </div>
             </dl>
           </div>
@@ -242,7 +271,10 @@ watch(() => route.params.id, load)
             <dl class="divide-y divide-slate-100">
               <div v-for="r in passportRows" :key="r.label" class="grid grid-cols-3 gap-4 px-6 py-3">
                 <dt class="text-sm text-slate-500">{{ r.label }}</dt>
-                <dd class="col-span-2 text-sm font-medium text-slate-800 break-words">{{ r.value }}</dd>
+                <dd class="col-span-2 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-800 break-words">
+                  <span>{{ r.value }}</span>
+                  <button v-if="r.field && canRevealRow(r.field)" type="button" class="rounded-lg border border-slate-200 px-2 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" :aria-label="`${r.label}ni ko‘rsatish`" @click="askReveal(r.field)">Ko‘rsatish</button>
+                </dd>
               </div>
             </dl>
           </div>
@@ -285,7 +317,10 @@ watch(() => route.params.id, load)
             <dl class="divide-y divide-slate-100">
               <div v-for="r in legalRows" :key="r.label" class="grid grid-cols-3 gap-4 px-6 py-3">
                 <dt class="text-sm text-slate-500">{{ r.label }}</dt>
-                <dd class="col-span-2 text-sm font-medium text-slate-800 break-words">{{ r.value }}</dd>
+                <dd class="col-span-2 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-800 break-words">
+                  <span>{{ r.value }}</span>
+                  <button v-if="r.field && canRevealRow(r.field)" type="button" class="rounded-lg border border-slate-200 px-2 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" :aria-label="`${r.label}ni ko‘rsatish`" @click="askReveal(r.field)">Ko‘rsatish</button>
+                </dd>
               </div>
               <div class="grid grid-cols-3 gap-4 px-6 py-3">
                 <dt class="text-sm text-slate-500">Hisob holati</dt>
@@ -305,5 +340,16 @@ watch(() => route.params.id, load)
     <div v-else class="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-500 shadow-sm">
       Ma’lumot topilmadi
     </div>
+
+    <ReasonDialog
+      :open="Boolean(revealTarget)"
+      :title="`${FIELD_LABELS[revealTarget] || 'Qiymatni'} ko‘rsatish`"
+      message="Shaxsiy ma’lumotni ochish audit jurnaliga yoziladi."
+      confirm-label="Ko‘rsatish"
+      :busy="revealBusy"
+      :error="revealError"
+      @confirm="doReveal"
+      @cancel="revealTarget = ''"
+    />
   </div>
 </template>

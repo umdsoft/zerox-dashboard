@@ -1,33 +1,26 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '../../lib/axios'
+import { useRequest } from '../../composables/useRequest'
+import { fmtNum, fmtDate as fmtDateF, fmtDateTime } from '../../lib/format'
 
-const loading = ref(false)
-const err = ref('')
 const data = ref(null)
 
-const fmt = (n) => new Intl.NumberFormat('uz-UZ').format(Number(n || 0))
-const fmtDate = (d) => {
-  if (!d) return '—'
-  const dt = new Date(d); if (isNaN(dt)) return '—'
-  const p = (x) => String(x).padStart(2, '0')
-  return `${p(dt.getDate())}.${p(dt.getMonth() + 1)}.${dt.getFullYear()} ${p(dt.getHours())}:${p(dt.getMinutes())}`
-}
+const fmt = fmtNum
+const fmtDate = (d) => fmtDateTime(d, { empty: '—' })
 const scrollToUsers = () => {
   const el = document.getElementById('pf-users-table')
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 const gapStatusLabel = (s) => ({ draft: 'Qoralama', active: 'Faol', completed: 'Yakunlangan' }[s] || s || '—')
 
-async function load() {
-  loading.value = true; err.value = ''
-  try {
-    const res = await api.get('/dashboard/stats/personal-finance')
-    data.value = res?.data?.data || res?.data || null
-  } catch (e) {
-    err.value = e?.response?.data?.message || e?.message || 'Ma‘lumotlarni yuklashda xatolik.'
-  } finally { loading.value = false }
-}
+const req = useRequest(
+  ({ signal }) => api.get('/dashboard/stats/personal-finance', { signal }),
+  { onSuccess: (res) => { data.value = res?.data?.data || res?.data || null } },
+)
+const loading = req.loading
+const err = req.error
+const load = () => req.run()
 onMounted(load)
 </script>
 
@@ -38,11 +31,11 @@ onMounted(load)
         <h1 class="text-2xl font-semibold text-slate-800">Shaxsiy moliya — statistika</h1>
         <p class="text-sm text-slate-500">Faqat agregat ko‘rsatkichlar. Individual shaxsiy moliya ma‘lumotlari ko‘rsatilmaydi (maxfiylik).</p>
       </div>
-      <button class="px-3 py-2 rounded-lg border text-sm text-slate-600 hover:bg-slate-50" @click="load">Yangilash</button>
+      <button type="button" class="px-3 py-2 rounded-lg border text-sm text-slate-600 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-60" :disabled="loading" @click="load">Yangilash</button>
     </div>
 
     <div v-if="loading" class="text-slate-500 text-sm py-8 text-center">Yuklanmoqda…</div>
-    <div v-else-if="err" class="text-rose-600 text-sm py-8 text-center">{{ err }}</div>
+    <div v-else-if="err" class="flex flex-wrap items-center justify-center gap-3 py-8 text-sm text-rose-700" role="alert"><span>{{ err }}</span><button type="button" class="rounded-lg border border-rose-300 bg-white px-3 py-1.5 font-medium hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500" @click="req.retry()">Qayta urinish</button></div>
 
     <template v-else-if="data">
       <!-- Foydalanuvchi kartalari -->
@@ -81,7 +74,7 @@ onMounted(load)
                 <td class="px-4 py-3 text-right">{{ fmt(r.count) }}</td>
                 <td class="px-4 py-3 text-right font-semibold text-rose-600">{{ fmt(r.total) }}</td>
               </tr>
-              <tr v-if="!data.expenses_by_currency?.length"><td colspan="3" class="px-4 py-6 text-center text-slate-400">Ma‘lumot yo‘q</td></tr>
+              <tr v-if="!data.expenses_by_currency?.length"><td colspan="3" class="px-4 py-6 text-center text-slate-500">Ma‘lumot yo‘q</td></tr>
             </tbody>
           </table>
         </div>
@@ -98,7 +91,7 @@ onMounted(load)
                 <td class="px-4 py-3 text-right">{{ fmt(r.count) }}</td>
                 <td class="px-4 py-3 text-right font-semibold text-emerald-600">{{ fmt(r.total) }}</td>
               </tr>
-              <tr v-if="!data.incomes_by_currency?.length"><td colspan="3" class="px-4 py-6 text-center text-slate-400">Ma‘lumot yo‘q</td></tr>
+              <tr v-if="!data.incomes_by_currency?.length"><td colspan="3" class="px-4 py-6 text-center text-slate-500">Ma‘lumot yo‘q</td></tr>
             </tbody>
           </table>
         </div>
@@ -156,14 +149,14 @@ onMounted(load)
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-for="(g, i) in data.gaps_list" :key="g.id" class="hover:bg-slate-50">
-                <td class="px-4 py-3 text-slate-400">{{ i + 1 }}</td>
+                <td class="px-4 py-3 text-slate-500">{{ i + 1 }}</td>
                 <td class="px-4 py-3 font-medium text-slate-800">{{ g.name }}</td>
                 <td class="px-4 py-3">{{ g.organizer }}</td>
-                <td class="px-4 py-3 text-right font-semibold">{{ fmt(g.amount) }} <span class="text-xs text-slate-400">{{ g.currency }}</span></td>
+                <td class="px-4 py-3 text-right font-semibold">{{ fmt(g.amount) }} <span class="text-xs text-slate-500">{{ g.currency }}</span></td>
                 <td class="px-4 py-3 text-right">{{ fmt(g.member_count) }}</td>
                 <td class="px-4 py-3 text-slate-600">{{ gapStatusLabel(g.status) }}</td>
               </tr>
-              <tr v-if="!data.gaps_list?.length"><td colspan="6" class="px-4 py-6 text-center text-slate-400">Gap yo‘q</td></tr>
+              <tr v-if="!data.gaps_list?.length"><td colspan="6" class="px-4 py-6 text-center text-slate-500">Gap yo‘q</td></tr>
             </tbody>
           </table>
         </div>
@@ -172,7 +165,7 @@ onMounted(load)
       <!-- SS-D: Hududlar bo‘yicha (moliya yurituvchilar soni) -->
       <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-700">
-          Hududlar bo‘yicha <span class="text-xs font-normal text-slate-400">— moliya yurituvchilar soni</span>
+          Hududlar bo‘yicha <span class="text-xs font-normal text-slate-500">— moliya yurituvchilar soni</span>
         </div>
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -187,7 +180,7 @@ onMounted(load)
                 <td class="px-4 py-3 font-medium text-slate-800">{{ r.region }}</td>
                 <td class="px-4 py-3 text-right">{{ fmt(r.user_count) }}</td>
               </tr>
-              <tr v-if="!data.by_region?.length"><td colspan="2" class="px-4 py-6 text-center text-slate-400">Ma‘lumot yo‘q</td></tr>
+              <tr v-if="!data.by_region?.length"><td colspan="2" class="px-4 py-6 text-center text-slate-500">Ma‘lumot yo‘q</td></tr>
             </tbody>
           </table>
         </div>
@@ -197,7 +190,7 @@ onMounted(load)
       <div id="pf-users-table" class="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-slate-700">
           Kimlar yuritmoqda ({{ fmt(data.users?.length || 0) }})
-          <span class="text-xs font-normal text-slate-400">— summalar ko‘rsatilmaydi (maxfiylik)</span>
+          <span class="text-xs font-normal text-slate-500">— summalar ko‘rsatilmaydi (maxfiylik)</span>
         </div>
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -214,15 +207,15 @@ onMounted(load)
             </thead>
             <tbody class="divide-y divide-slate-100">
               <tr v-for="(u, i) in data.users" :key="i" class="hover:bg-slate-50">
-                <td class="px-4 py-3 text-slate-400">{{ i + 1 }}</td>
+                <td class="px-4 py-3 text-slate-500">{{ i + 1 }}</td>
                 <td class="px-4 py-3 font-medium text-slate-800">{{ u.fio }}</td>
-                <td class="px-4 py-3 font-mono">{{ u.phone }}</td>
+                <td class="px-4 py-3 font-mono">{{ u.phone_masked || u.phone }}</td>
                 <td class="px-4 py-3 text-right">{{ fmt(u.expense_count) }}</td>
                 <td class="px-4 py-3 text-right">{{ fmt(u.income_count) }}</td>
                 <td class="px-4 py-3 text-right text-slate-500">{{ fmt(u.budget_count) }} / {{ fmt(u.goal_count) }}</td>
                 <td class="px-4 py-3 text-right text-slate-500">{{ fmtDate(u.last_activity) }}</td>
               </tr>
-              <tr v-if="!data.users?.length"><td colspan="7" class="px-4 py-6 text-center text-slate-400">Moliya yurituvchi foydalanuvchi yo‘q</td></tr>
+              <tr v-if="!data.users?.length"><td colspan="7" class="px-4 py-6 text-center text-slate-500">Moliya yurituvchi foydalanuvchi yo‘q</td></tr>
             </tbody>
           </table>
         </div>

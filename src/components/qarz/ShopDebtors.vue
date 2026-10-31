@@ -2,13 +2,13 @@
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import api from '../../lib/axios'
 import PagerBar from '../ui/PagerBar.vue'
+import { fmtNum, fmtDateTime as fmtDT } from '../../lib/format'
 
 // Do'konning BARCHA qarzdorlari (mijozlari): 10 tadan sahifalanadi, telefon + SMS tugmasi.
 const props = defineProps({ shopId: { type: [Number, String], required: true } })
 
 const LIMIT = 10
-const nf = new Intl.NumberFormat('ru-RU')
-const fmtN = (v) => nf.format(Number(v ?? 0))
+const fmtN = fmtNum
 
 const items = ref([])
 const total = ref(0)
@@ -60,6 +60,7 @@ const smsTotal = ref(0)
 const smsPage = ref(1)
 const smsLoading = ref(false)
 const smsErr = ref('')
+const smsMijoz = ref(null)
 
 let smsSeq = 0
 async function loadSms() {
@@ -74,6 +75,7 @@ async function loadSms() {
     if (my !== smsSeq) return
     const d = res?.data?.data || {}
     smsItems.value = d.items || []
+    smsMijoz.value = d.mijoz || null
     smsTotal.value = Number(d.total || 0)
   } catch (e) {
     if (my !== smsSeq) return
@@ -82,19 +84,13 @@ async function loadSms() {
   } finally { if (my === smsSeq) smsLoading.value = false }
 }
 function openSms(row) {
-  smsDebtor.value = row; smsPage.value = 1; smsItems.value = []; smsTotal.value = 0
+  smsDebtor.value = row; smsMijoz.value = null; smsPage.value = 1; smsItems.value = []; smsTotal.value = 0
   smsOpen.value = true
   loadSms()
 }
 function setSmsPage(p) { smsPage.value = p; loadSms() }
 
-function fmtDateTime(v) {
-  if (!v) return '—'
-  const d = new Date(v)
-  if (isNaN(d.getTime())) return '—'
-  const p = (x) => String(x).padStart(2, '0')
-  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`
-}
+const fmtDateTime = (v) => fmtDT(v, { empty: '—' })
 const STATUS = {
   sent: { label: 'Yuborilgan', cls: 'bg-emerald-100 text-emerald-700' },
   failed: { label: 'Xato', cls: 'bg-rose-100 text-rose-700' },
@@ -137,17 +133,17 @@ const tp = (t) => TYPE[t] || t || '—'
         <tbody class="divide-y divide-slate-100">
           <tr v-for="r in items" :key="r.mijoz_id" class="hover:bg-slate-50/60">
             <td class="px-3 py-2.5 font-medium text-slate-800">{{ r.fish }}</td>
-            <td class="px-3 py-2.5 tabular-nums text-slate-600">{{ r.telefon || '—' }}</td>
+            <td class="px-3 py-2.5 tabular-nums text-slate-600">{{ r.telefon_masked || r.phone_masked || '—' }}</td>
             <td class="px-3 py-2.5 text-right tabular-nums text-slate-600">{{ fmtN(r.qarz_count) }}</td>
             <td class="px-3 py-2.5 text-right tabular-nums text-slate-800">
-              <div v-if="r.berilgan_uzs || !r.berilgan_usd">{{ fmtN(r.berilgan_uzs) }} <span class="text-xs text-slate-400">UZS</span></div>
-              <div v-if="r.berilgan_usd">{{ fmtN(r.berilgan_usd) }} <span class="text-xs text-slate-400">USD</span></div>
+              <div v-if="r.berilgan_uzs || !r.berilgan_usd">{{ fmtN(r.berilgan_uzs) }} <span class="text-xs text-slate-500">UZS</span></div>
+              <div v-if="r.berilgan_usd">{{ fmtN(r.berilgan_usd) }} <span class="text-xs text-slate-500">USD</span></div>
             </td>
             <td class="px-3 py-2.5 text-right tabular-nums text-rose-700">
-              <div v-if="r.qoldiq_uzs || !r.qoldiq_usd">{{ fmtN(r.qoldiq_uzs) }} <span class="text-xs text-slate-400">UZS</span></div>
-              <div v-if="r.qoldiq_usd">{{ fmtN(r.qoldiq_usd) }} <span class="text-xs text-slate-400">USD</span></div>
+              <div v-if="r.qoldiq_uzs || !r.qoldiq_usd">{{ fmtN(r.qoldiq_uzs) }} <span class="text-xs text-slate-500">UZS</span></div>
+              <div v-if="r.qoldiq_usd">{{ fmtN(r.qoldiq_usd) }} <span class="text-xs text-slate-500">USD</span></div>
             </td>
-            <td class="px-3 py-2.5 text-right tabular-nums text-slate-600">{{ fmtN(r.sms_sent) }}<span v-if="r.sms_total !== r.sms_sent" class="text-xs text-slate-400"> / {{ fmtN(r.sms_total) }}</span></td>
+            <td class="px-3 py-2.5 text-right tabular-nums text-slate-600">{{ fmtN(r.sms_sent) }}<span v-if="r.sms_total !== r.sms_sent" class="text-xs text-slate-500"> / {{ fmtN(r.sms_total) }}</span></td>
             <td class="px-3 py-2.5 text-center">
               <button
                 class="px-2.5 py-1 rounded-lg border text-xs text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
@@ -156,9 +152,9 @@ const tp = (t) => TYPE[t] || t || '—'
             </td>
           </tr>
           <tr v-if="!items.length && !loading && !err">
-            <td colspan="7" class="px-3 py-6 text-center text-slate-400">Qarzdorlar topilmadi</td>
+            <td colspan="7" class="px-3 py-6 text-center text-slate-500">Qarzdorlar topilmadi</td>
           </tr>
-          <tr v-if="loading"><td colspan="7" class="px-3 py-6 text-center text-slate-400">Yuklanmoqda…</td></tr>
+          <tr v-if="loading"><td colspan="7" class="px-3 py-6 text-center text-slate-500">Yuklanmoqda…</td></tr>
         </tbody>
       </table>
     </div>
@@ -170,14 +166,14 @@ const tp = (t) => TYPE[t] || t || '—'
         <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <div>
             <p class="font-semibold text-slate-800">{{ smsDebtor?.fish }}</p>
-            <p class="text-xs text-slate-500">{{ smsDebtor?.telefon || '—' }} · yuborilgan SMS xabarlar</p>
+            <p class="text-xs text-slate-500">{{ smsMijoz?.phone_masked || smsDebtor?.telefon_masked || smsDebtor?.phone_masked || '—' }} · yuborilgan SMS xabarlar</p>
           </div>
-          <button class="text-slate-400 hover:text-slate-700 text-xl leading-none" @click="smsOpen = false">×</button>
+          <button class="text-slate-500 hover:text-slate-700 text-xl leading-none" @click="smsOpen = false">×</button>
         </div>
         <div class="overflow-y-auto flex-1">
           <div v-if="smsErr" class="p-5 text-sm text-rose-600">{{ smsErr }}</div>
-          <div v-else-if="smsLoading" class="p-5 text-sm text-slate-400 text-center">Yuklanmoqda…</div>
-          <div v-else-if="!smsItems.length" class="p-5 text-sm text-slate-400 text-center">SMS topilmadi</div>
+          <div v-else-if="smsLoading" class="p-5 text-sm text-slate-500 text-center">Yuklanmoqda…</div>
+          <div v-else-if="!smsItems.length" class="p-5 text-sm text-slate-500 text-center">SMS topilmadi</div>
           <ul v-else class="divide-y divide-slate-100">
             <li v-for="m in smsItems" :key="m.id" class="px-5 py-3">
               <div class="flex items-center gap-2 flex-wrap text-xs text-slate-500">

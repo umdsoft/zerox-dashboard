@@ -3,29 +3,18 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../../lib/axios'
 import ShopDebtors from '../../components/qarz/ShopDebtors.vue'
+import StateBlock from '../../components/ui/StateBlock.vue'
+import { fmtNum, fmtDate as formatDate, fmtDateTime } from '../../lib/format'
+import { useRequest } from '../../composables/useRequest'
 
 const route = useRoute()
 const router = useRouter()
 
-const loading = ref(false)
-const err = ref('')
 const data = ref(null)
 
 // ------- HELPERS -------
-const nf = new Intl.NumberFormat('ru-RU')
-const fmtN = (v) => nf.format(Number(v ?? 0))
-function fmtDate(v, withTime = false) {
-  if (!v) return '—'
-  const d = new Date(v)
-  if (isNaN(d.getTime())) return '—'
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const base = `${dd}.${mm}.${d.getFullYear()}`
-  if (!withTime) return base
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mi = String(d.getMinutes()).padStart(2, '0')
-  return `${base} ${hh}:${mi}`
-}
+const fmtN = fmtNum
+const fmtDate = (v, withTime = false) => (withTime ? fmtDateTime(v, { empty: '—' }) : formatDate(v, { empty: '—' }))
 
 // Faqat ma'lumot bo'lgan valyutalarni ko'rsatamiz (UZS doim, USD bo'lsa)
 const summaryCards = computed(() => {
@@ -66,21 +55,13 @@ const qarzStatus = (s) => QARZ_STATUS[s] || { label: s || '—', cls: 'bg-slate-
 const turiLabel = (t) => (t === 'berish' ? 'Berildi' : t === 'olish' ? 'Olindi' : t || '—')
 
 // ------- API -------
-async function load() {
-  const id = route.params.id
-  if (!id) { err.value = "Noto'g'ri do'kon ID"; return }
-  loading.value = true
-  err.value = ''
-  try {
-    const res = await api.get(`/dashboard/store/${id}`)
-    data.value = res?.data?.data ?? null
-    if (!data.value) err.value = "Do'kon ma'lumoti topilmadi"
-  } catch (e) {
-    err.value = e?.response?.data?.message || e?.message || 'Yuklashda xatolik'
-  } finally {
-    loading.value = false
-  }
-}
+const req = useRequest(
+  ({ signal }) => api.get(`/dashboard/store/${route.params.id}`, { signal }),
+  { onSuccess: (res) => { data.value = res?.data?.data ?? null } },
+)
+const loading = req.loading
+const err = computed(() => req.error.value || (req.loaded.value && !data.value ? "Do‘kon ma’lumoti topilmadi" : ''))
+const load = () => (route.params.id ? req.run() : undefined)
 onMounted(load)
 watch(() => route.params.id, load)
 
@@ -94,20 +75,15 @@ function goBack() {
   <div class="p-4 md:p-6">
     <!-- Orqaga -->
     <button
-      class="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50"
+      type="button"
+      class="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
       @click="goBack"
     >
       <fa icon="arrow-left" class="text-xs" />
       Orqaga
     </button>
 
-    <div v-if="loading" class="rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-500 shadow-sm">
-      Yuklanmoqda…
-    </div>
-
-    <div v-else-if="err" class="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-700 shadow-sm">
-      {{ err }}
-    </div>
+    <StateBlock v-if="loading || err" :loading="loading" :error="err" @retry="req.retry()" />
 
     <div v-else-if="data" class="space-y-6">
       <!-- ====== Do'kon + egasi sarlavha kartasi ====== -->
@@ -124,11 +100,11 @@ function goBack() {
                 <h2 class="text-xl font-semibold text-slate-800 md:text-2xl">{{ data.store.nomi }}</h2>
                 <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
                   <span class="inline-flex items-center gap-1.5">
-                    <fa icon="location-dot" class="text-xs text-slate-400" />
+                    <fa icon="location-dot" class="text-xs text-slate-500" />
                     {{ data.store.manzil || 'Manzil kiritilmagan' }}
                   </span>
                   <span class="inline-flex items-center gap-1.5">
-                    <fa icon="calendar-days" class="text-xs text-slate-400" />
+                    <fa icon="calendar-days" class="text-xs text-slate-500" />
                     Ro'yxatga olingan: {{ fmtDate(data.store.royxat_sana) }}
                   </span>
                 </div>
@@ -137,16 +113,14 @@ function goBack() {
 
             <!-- Egasi -->
             <div class="shrink-0 rounded-xl border border-slate-100 bg-slate-50/70 p-4 sm:min-w-[260px]">
-              <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">Do'kon egasi</div>
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Do'kon egasi</div>
               <div class="mt-1.5 text-sm font-semibold text-slate-800">{{ data.owner.name || '—' }}</div>
               <div class="mt-2 flex items-center gap-2 text-sm text-slate-600">
                 <fa icon="phone" class="text-xs text-emerald-500" />
-                <a v-if="data.owner.phone" :href="`tel:${data.owner.phone}`" class="font-medium !text-slate-700 no-underline hover:!text-emerald-600">
-                  {{ data.owner.phone }}
-                </a>
-                <span v-else class="text-slate-400">—</span>
+                <span v-if="data.owner.phone_masked" class="font-medium text-slate-700">{{ data.owner.phone_masked }}</span>
+                <span v-else class="text-slate-500">—</span>
               </div>
-              <div v-if="data.owner.uid" class="mt-1.5 text-xs text-slate-400">ID: {{ data.owner.uid }}</div>
+              <div v-if="data.owner.uid" class="mt-1.5 text-xs text-slate-500">ID: {{ data.owner.uid }}</div>
             </div>
           </div>
 
@@ -205,7 +179,7 @@ function goBack() {
           <h3 class="text-base font-semibold text-slate-800">Tariflar tarixi</h3>
           <span class="text-xs font-semibold text-slate-500">{{ fmtN((data.tariflar || []).length) }} ta</span>
         </div>
-        <div v-if="!(data.tariflar || []).length" class="mt-4 text-sm text-slate-400">Tarif tarixi yo'q</div>
+        <div v-if="!(data.tariflar || []).length" class="mt-4 text-sm text-slate-500">Tarif tarixi yo'q</div>
         <div v-else class="mt-4 overflow-x-auto">
           <table class="min-w-full text-sm">
             <thead>
@@ -249,7 +223,7 @@ function goBack() {
           <h3 class="text-base font-semibold text-slate-800">So'nggi qarzlar</h3>
           <span class="text-xs font-semibold text-slate-500">oxirgi {{ fmtN((data.qarzlar || []).length) }} ta</span>
         </div>
-        <div v-if="!(data.qarzlar || []).length" class="mt-4 text-sm text-slate-400">Qarzlar topilmadi</div>
+        <div v-if="!(data.qarzlar || []).length" class="mt-4 text-sm text-slate-500">Qarzlar topilmadi</div>
         <div v-else class="mt-4 overflow-x-auto">
           <table class="min-w-full text-sm">
             <thead>
@@ -268,7 +242,7 @@ function goBack() {
                 <td class="px-3 py-2.5 font-medium text-slate-800">{{ q.mijoz || '—' }}</td>
                 <td class="px-3 py-2.5 text-slate-600">{{ turiLabel(q.turi) }}</td>
                 <td class="px-3 py-2.5 text-right tabular-nums text-slate-800">
-                  {{ fmtN(q.miqdor) }} <span class="text-xs text-slate-400">{{ q.valyuta }}</span>
+                  {{ fmtN(q.miqdor) }} <span class="text-xs text-slate-500">{{ q.valyuta }}</span>
                 </td>
                 <td class="px-3 py-2.5 text-right tabular-nums text-rose-700">{{ fmtN(q.qoldiq) }}</td>
                 <td class="px-3 py-2.5 text-center">

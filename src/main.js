@@ -22,6 +22,7 @@ library.add(
 
 const app = createApp(App);
 
+// Pinia router'dan OLDIN o'rnatiladi (guard va auth-failure handler store'dan foydalanadi)
 app.use(createPinia());
 app.use(router);
 

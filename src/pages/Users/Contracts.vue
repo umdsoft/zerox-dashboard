@@ -1,12 +1,13 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import api from '../../lib/axios'
+import { fmtDate, fmtNum } from '../../lib/format'
+import { useRequest } from '../../composables/useRequest'
+import StateBlock from '../../components/ui/StateBlock.vue'
 
 const route = useRoute()
 
-const loading = ref(false)
-const err = ref('')
 
 const user = ref(null)
 
@@ -30,30 +31,19 @@ const tabLeft = ref(1)
 const tabRight = ref(1)
 
 /* ---------- utils ---------- */
-function nfmt(n) {
-  if (n == null) return '0'
-  const num = typeof n === 'number' ? n : Number(String(n).replace(/[^\d.-]/g, ''))
-  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(isNaN(num) ? 0 : num)
-}
-function dateFormat(val) {
-  if (!val) return ''
-  const d = new Date(val)
-  if (isNaN(d)) return ''
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yyyy = d.getFullYear()
-  return `${dd}.${mm}.${yyyy}`
-}
+const nfmt = fmtNum
+const dateFormat = (v) => fmtDate(v)
+
+// Muddatgacha qolgan vaqt: matn + shoshilinch (qizil) belgisi. v-html ishlatilmaydi.
 function getDays(time) {
   const ms = new Date(time) - Date.now()
-  if (isNaN(ms)) return '—'
-  if (ms < 0) return "<span class='text-red-500'>Bugun</span>"
+  if (Number.isNaN(ms)) return { text: '—', urgent: false }
+  if (ms < 0) return { text: 'Bugun', urgent: true }
   const days = Math.ceil(ms / (24 * 60 * 60 * 1000))
-  if (days <= 1) return "<span class='text-red-500'>1 kun</span>"
-  if (days < 4) return `<span class='text-red-500'>${days} kun</span>`
-  return `${days} kun`
+  if (days <= 1) return { text: '1 kun', urgent: true }
+  return { text: `${days} kun`, urgent: days < 4 }
 }
-/* Normalize user object (field nomlari turlicha bo‘lishi mumkin) */
+
 function normalizeUser(u) {
   const raw = u?.data?.data ?? u?.data ?? u ?? {}
   return {
@@ -70,9 +60,9 @@ function normalizeUser(u) {
   }
 }
 
-/* /home/by javobini normalize qilish */
-function normalizeByResponse(res) {
-  const d = res?.data?.data ?? res?.data ?? {}
+// Xulosa blokini { five, data, expired } ko'rinishiga keltiradi
+function normalizeBlock(d) {
+  d = d || {}
   return {
     five: Array.isArray(d.five) ? d.five : [],
     data: Array.isArray(d.data) ? d.data : [],
@@ -80,86 +70,56 @@ function normalizeByResponse(res) {
   }
 }
 
-/* Tab almashtirish */
+function applySide(side, block) {
+  const B = normalizeBlock(block)
+  const pick = (arr, cur) => arr.find((i) => i.currency === cur) || null
+  if (side === 'debitor') {
+    nearDebitor.value = B.five
+    debitorData.value = B.five.filter((i) => i.currency === 'UZS')
+    debitorUsd.value = pick(B.data, 'USD'); debitorUzs.value = pick(B.data, 'UZS')
+    expiredDebitorUsd.value = pick(B.expired, 'USD'); expiredDebitorUzs.value = pick(B.expired, 'UZS')
+  } else {
+    nearCreditor.value = B.five
+    creditorData.value = B.five.filter((i) => i.currency === 'UZS')
+    creditorUsd.value = pick(B.data, 'USD'); creditorUzs.value = pick(B.data, 'UZS')
+    expiredCreditorUsd.value = pick(B.expired, 'USD'); expiredCreditorUzs.value = pick(B.expired, 'UZS')
+  }
+}
+
 function handleTab(side, value) {
   const cur = value === 1 ? 'UZS' : 'USD'
   if (side === 'left') {
     tabLeft.value = value
-    debitorData.value = (nearDebitor.value || []).filter(i => i.currency === cur)
+    debitorData.value = (nearDebitor.value || []).filter((i) => i.currency === cur)
   } else {
     tabRight.value = value
-    creditorData.value = (nearCreditor.value || []).filter(i => i.currency === cur)
+    creditorData.value = (nearCreditor.value || []).filter((i) => i.currency === cur)
   }
 }
 
 /* ---------- loader ---------- */
-async function load() {
-  loading.value = true
-  err.value = ''
-  try {
-    // 1) User — bir nechta endpointni sinab ko‘ramiz
-    let uRes
-    const idParam = route.params.id
-    const tryUrls = [
-      `/user/admin/user/${idParam}`,
-      `/user/candidate/${idParam}`,
-      `/users/${idParam}`,
-    ]
-    for (const url of tryUrls) {
-      try {
-        uRes = await api.get(url)
-        if (uRes?.data) break
-      } catch (_) { /* continue */ }
-    }
-    if (!uRes?.data) throw new Error('Foydalanuvchi topilmadi')
-
-    const u = normalizeUser(uRes)
-    user.value = u
-
-    // 2) Debitor/Kreditor statistikasi – avval id bilan, bo‘lmasa uid bilan
-    const key = u.id ?? u.uid
-    if (!key) throw new Error('User ID/UID aniqlanmadi')
-
-    // debitor
-    let dRes
-    try { dRes = await api.get(`/home/by/${u.id}?type=debitor`) } catch(_){}
-    if (!dRes) try { dRes = await api.get(`/home/by/${u.uid}?type=debitor`) } catch(_){}
-    if (dRes) {
-      const D = normalizeByResponse(dRes)
-      nearDebitor.value = D.five
-      debitorData.value = D.five.filter(i => i.currency === 'UZS')
-      debitorUsd.value = D.data.find(i => i.currency === 'USD') || null
-      debitorUzs.value = D.data.find(i => i.currency === 'UZS') || null
-      expiredDebitorUsd.value = D.expired.find(i => i.currency === 'USD') || null
-      expiredDebitorUzs.value = D.expired.find(i => i.currency === 'UZS') || null
-    } else {
-      nearDebitor.value = []
-      debitorData.value = []
-    }
-
-    // kreditor
-    let cRes
-    try { cRes = await api.get(`/home/by/${u.id}?type=creditor`) } catch(_){}
-    if (!cRes) try { cRes = await api.get(`/home/by/${u.uid}?type=creditor`) } catch(_){}
-    if (cRes) {
-      const C = normalizeByResponse(cRes)
-      nearCreditor.value = C.five
-      creditorData.value = C.five.filter(i => i.currency === 'UZS')
-      creditorUsd.value = C.data.find(i => i.currency === 'USD') || null
-      creditorUzs.value = C.data.find(i => i.currency === 'UZS') || null
-      expiredCreditorUsd.value = C.expired.find(i => i.currency === 'USD') || null
-      expiredCreditorUzs.value = C.expired.find(i => i.currency === 'UZS') || null
-    } else {
-      nearCreditor.value = []
-      creditorData.value = []
-    }
-  } catch (e) {
-    err.value = e?.response?.data?.message || e?.message || 'Ma’lumotlarni yuklashda xatolik'
-  } finally {
-    loading.value = false
-  }
+// 1) foydalanuvchi (bitta aniq endpoint), 2) yangi /dashboard/user/:id/summary (avval /home/by/:id taxmin qilinardi)
+async function fetchAll({ signal }) {
+  const uRes = await api.get(`/user/admin/user/${route.params.id}`, { signal })
+  const u = normalizeUser(uRes)
+  const key = u.id ?? u.uid
+  if (!key) throw new Error('Foydalanuvchi ID aniqlanmadi')
+  const sRes = await api.get(`/dashboard/user/${key}/summary`, { signal })
+  const body = sRes?.data?.data ?? sRes?.data ?? {}
+  return { u, body }
 }
 
+const req = useRequest(fetchAll, {
+  onSuccess({ u, body }) {
+    user.value = u
+    applySide('debitor', body.debitor)
+    applySide('creditor', body.creditor)
+  },
+})
+const loading = req.loading
+const err = req.error
+const load = () => req.run()
+watch(() => route.params.id, load)
 onMounted(load)
 </script>
 
@@ -286,7 +246,7 @@ onMounted(load)
           </thead>
           <tbody>
             <tr v-for="(item, i) in debitorData" :key="i" class="flex items-center py-1 text-sm">
-              <td class="w-1/2 px-2" v-html="getDays(item.end_date)"></td>
+              <td class="w-1/2 px-2"><span :class="getDays(item.end_date).urgent ? 'text-red-600' : ''">{{ getDays(item.end_date).text }}</span></td>
               <td class="w-1/2 px-2">{{ nfmt(item.residual_amount) }} {{ item.currency }}</td>
             </tr>
           </tbody>
@@ -320,7 +280,7 @@ onMounted(load)
           </thead>
           <tbody>
             <tr v-for="(item, i) in creditorData" :key="i" class="flex items-center py-1 text-sm">
-              <td class="w-1/2 px-2" v-html="getDays(item.end_date)"></td>
+              <td class="w-1/2 px-2"><span :class="getDays(item.end_date).urgent ? 'text-red-600' : ''">{{ getDays(item.end_date).text }}</span></td>
               <td class="w-1/2 px-2">{{ nfmt(item.residual_amount) }} {{ item.currency }}</td>
             </tr>
           </tbody>
@@ -374,12 +334,7 @@ onMounted(load)
   </div>
 
   <!-- Loading / error -->
-  <div v-else class="p-6">
-    <div v-if="loading" class="rounded-xl border bg-white p-6 text-center text-slate-500 shadow-sm">
-      Yuklanmoqda…
-    </div>
-    <div v-else-if="err" class="rounded-xl border border-rose-200 bg-rose-50 p-6 text-rose-700 shadow-sm">
-      {{ err }}
-    </div>
+  <div v-else class="p-2">
+    <StateBlock :loading="loading" :error="err" @retry="req.retry()" />
   </div>
 </template>

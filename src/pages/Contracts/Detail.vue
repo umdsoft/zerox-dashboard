@@ -3,31 +3,18 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../../lib/axios'
 import { pdfUrl as buildPdfUrl } from '../../lib/config'
+import { fmtDate as formatDate, fmtNum } from '../../lib/format'
+import { useRequest } from '../../composables/useRequest'
+import StateBlock from '../../components/ui/StateBlock.vue'
 
 // ------- STATE -------
 const route = useRoute()
-const loading = ref(false)
-const err = ref('')
 const raw = ref({ contract: null, acts: [] }) // eski panel tuzilmasi bilan mos
 
 // ------- HELPERS -------
-function fmtDate(val, withYearWord = true) {
-  if (!val) return ''
-  // "2025-10-05T..." | "2025-10-05" | "05.10.2025"
-  if (/^\d{2}\.\d{2}\.\d{4}$/.test(val)) return withYearWord ? `${val} yil` : val
-  const d = new Date(val)
-  if (isNaN(d.getTime())) return ''
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yyyy = d.getFullYear()
-  const s = `${dd}.${mm}.${yyyy}`
-  return withYearWord ? `${s} yil` : s
-}
-function fmtMoney(n) {
-  if (n == null) return ''
-  const num = typeof n === 'number' ? n : Number(String(n).replace(/[^\d.-]/g, ''))
-  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(isNaN(num) ? 0 : num)
-}
+// lib/format.js ustiga yupqa qoplama: oldingi chaqiruvlar (withYearWord) saqlanadi
+const fmtDate = (val, withYearWord = true) => formatDate(val, { yearWord: withYearWord })
+const fmtMoney = (n) => (n == null ? '' : fmtNum(n))
 
 // Hujjat turi mapping — backend Act modelidagi to'liq ro'yxat (8 ta turdan iborat).
 // Avval 5 va 7 yo'q edi — natijada rad qilingan qisman voz kechish va talab
@@ -158,53 +145,19 @@ function normalizeAct(a) {
   }
 }
 
-// Status fallback: detal endpoint (forAdminOneContract) statusni qaytarmasa,
-// ro'yxat endpointidan (getAllContracts — statusni DOIM qaytaradi) olamiz.
-// Shunda backend yangilanmagan bo'lsa ham status ko'rinadi. Backend yangilangach,
-// status allaqachon kelganligi uchun bu fallback umuman ishlamaydi (ortiqcha so'rov yo'q).
-async function ensureStatus(contractObj, id) {
-  if (!contractObj) return contractObj
-  const has = contractObj.status != null && String(contractObj.status).trim() !== ''
-  if (has) return contractObj
-  try {
-    const lres = await api.get('/dashboard/contracts', {
-      params: { search: contractObj.number || undefined, limit: 100 },
-    })
-    const body = lres?.data ?? {}
-    const list = Array.isArray(body) ? body
-      : Array.isArray(body.data) ? body.data
-        : Array.isArray(body.items) ? body.items : []
-    const match = list.find((c) =>
-      String(c.id ?? '') === String(id) ||
-      String(c.number ?? c.contract_no ?? '') === String(contractObj.number ?? '')
-    )
-    if (match && match.status != null) {
-      return { ...contractObj, status: match.status }
-    }
-  } catch (_) { /* fallback ixtiyoriy — xato bo'lsa ham asosiy sahifa ishlaydi */ }
-  return contractObj
-}
-
-async function load() {
-  const id = route.params.id
-  if (!id) { err.value = 'Noto‘g‘ri kontrakt ID'; return }
-  loading.value = true
-  err.value = ''
-  try {
-    const res = await api.get(`/contract/admin/contract/${id}`)
-    const payload = res?.data?.data ?? res?.data ?? res ?? {}
-    let contractObj = pickContract(payload)
-    contractObj = await ensureStatus(contractObj, id)
-    raw.value = {
-      contract: contractObj,
-      acts: pickActs(payload, contractObj).map(normalizeAct),
-    }
-  } catch (e) {
-    err.value = e?.response?.data?.message || e?.message || 'Yuklashda xatolik'
-  } finally {
-    loading.value = false
-  }
-}
+const req = useRequest(
+  ({ signal }) => api.get(`/contract/admin/contract/${route.params.id}`, { signal }),
+  {
+    onSuccess(res) {
+      const payload = res?.data?.data ?? res?.data ?? res ?? {}
+      const contractObj = pickContract(payload)
+      raw.value = { contract: contractObj, acts: pickActs(payload, contractObj).map(normalizeAct) }
+    },
+  },
+)
+const loading = req.loading
+const err = req.error
+const load = () => (route.params.id ? req.run() : undefined)
 onMounted(load)
 watch(() => route.params.id, load)
 
@@ -224,13 +177,7 @@ const pdfAllUrl = computed(() => {
 
 <template>
   <div class="p-4 md:p-6">
-    <div v-if="loading" class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm text-center text-slate-500">
-      Yuklanmoqda…
-    </div>
-
-    <div v-else-if="err" class="rounded-xl border border-rose-200 bg-rose-50 p-6 shadow-sm text-rose-700">
-      {{ err }}
-    </div>
+    <StateBlock v-if="loading || err" :loading="loading" :error="err" @retry="req.retry()" />
 
     <div v-else-if="contract" class="space-y-6">
       <!-- ====== Shartnoma sarlavha kartasi (redizayn) ====== -->

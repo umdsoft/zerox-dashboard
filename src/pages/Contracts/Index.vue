@@ -1,20 +1,28 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink } from 'vue-router'
 import DataTable from '../../components/ui/DataTable.vue'
+import PagerBar from '../../components/ui/PagerBar.vue'
 import api from '../../lib/axios'
+import { fmtDate, fmtMoney } from '../../lib/format'
+import { usePagedList } from '../../composables/useRequest'
 
-const loading = ref(false)
-const contracts = ref([])
-
-// Qidiruv / filtr (Foydalanuvchilar bo'limidagi kabi)
+// Qidiruv / filtr
 const search = ref('')
 const statusFilter = ref('') // '' = barchasi; '1','2','0','3,4' = holat
 
-// Pagination: select yo‘q, default 15
-const page = ref(1)
-const limit = ref(10)
-const total = ref(0)
+const list = usePagedList(({ signal }, { page, limit }) =>
+  api.get('/dashboard/contracts', {
+    signal,
+    params: {
+      page, limit,
+      search: search.value.trim() || undefined,
+      status: statusFilter.value !== '' ? statusFilter.value : undefined,
+    },
+  }),
+)
+const { page, limit, total, loading, error } = list
+const contracts = list.rows
 
 // Ustunlar — sen bergan tartibda
 const columns = [
@@ -29,25 +37,6 @@ const columns = [
 ]
 
 // ---------- helpers ----------
-function fmtDate(val) {
-  if (!val) return ''
-  if (/^\d{2}\.\d{2}\.\d{4}$/.test(val)) return val
-  const d = new Date(val)
-  if (isNaN(d.getTime())) return ''
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yyyy = d.getFullYear()
-  return `${dd}.${mm}.${yyyy}`
-}
-
-// 1 000 000 + currency
-function fmtAmount(amount, currency) {
-  if (amount == null) return ''
-  const n = typeof amount === 'number' ? amount : Number(String(amount).replace(/[^\d.-]/g, ''))
-  const withSpaces = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(isNaN(n) ? 0 : n)
-  const cur = currency || 'UZS'
-  return `${withSpaces} ${cur}`
-}
 
 // Status badge — kod (0..4) va matnli sinonimlar uchun yagona, izchil jadval.
 // Avval class/label funksiyalari bir-biriga zid mapping ishlatardi (masalan,
@@ -79,56 +68,6 @@ function statusLabel(val) {
   return k ? STATUS_MAP[k].label : (val ?? '—')
 }
 
-// Backend javobini aqlli normalize qilish (rows/total/per/current)
-function normalizeResponse(res) {
-  const raw = res?.data ?? res
-
-  // rows
-  const rows =
-    Array.isArray(raw) ? raw
-      : Array.isArray(raw?.data) ? raw.data
-        : Array.isArray(raw?.items) ? raw.items
-          : Array.isArray(raw?.data?.items) ? raw.data.items
-            : []
-
-  // meta variantlari
-  const meta = raw?.meta || raw?.pagination || raw?.page || {}
-  const dataMeta = raw?.data?.meta || {}
-  const headersTotal = Number(res?.headers?.['x-total-count']) || Number(res?.headers?.['x-total']) || 0
-
-  // per_page / limit
-  const per =
-    Number(raw?.per_page) || Number(raw?.limit) ||
-    Number(meta?.per_page) || Number(meta?.limit) ||
-    Number(meta?.pageSize) || Number(dataMeta?.per_page) ||
-    limit.value
-
-  // current_page
-  const current =
-    Number(raw?.current_page) ||
-    Number(meta?.current_page) || Number(meta?.page) ||
-    Number(meta?.pageIndex) || Number(dataMeta?.current_page) ||
-    page.value
-
-  // last_page
-  const last =
-    Number(raw?.last_page) ||
-    Number(meta?.last_page) || Number(meta?.totalPages) ||
-    Number(dataMeta?.last_page) || null
-
-  // total / count
-  let t =
-    Number(raw?.total) || Number(raw?.count) || Number(raw?.total_count) ||
-    Number(meta?.total) || Number(meta?.count) ||
-    Number(dataMeta?.total) || Number(raw?.data?.total) ||
-    headersTotal || 0
-
-  if (!t && last && per) t = last * per
-  if (!t) t = rows.length
-
-  return { rows, perPage: per || limit.value, currentPage: current || page.value, lastPage: last, total: t }
-}
-
 // Backenddan kelgan obyektni jadval uchun boyitish/normalize
 const rowsForTable = computed(() => {
   return (contracts.value || []).map((c) => {
@@ -151,64 +90,22 @@ const rowsForTable = computed(() => {
       creditor_id: credId,
       debitor_full_name: deb,
       debitor_id: debId,
-      amount_fmt: fmtAmount(amount, currency),
+      amount_fmt: amount == null ? '' : fmtMoney(amount, currency),
       return_date_fmt: fmtDate(returnDate),
       status,
     }
   })
 })
 
-const pageCount = computed(() => Math.max(1, Math.ceil(total.value / limit.value)))
-const canPrev = computed(() => page.value > 1)
-const canNext = computed(() => page.value < pageCount.value)
-
-// ---------- API ----------
-async function loadContracts() {
-  loading.value = true
-  try {
-    const res = await api.get('/dashboard/contracts', {
-      params: {
-        page: page.value,
-        limit: limit.value,
-        per_page: limit.value, // ayrim backendlar shuni kutadi
-        search: search.value || undefined,
-        status: statusFilter.value !== '' ? statusFilter.value : undefined,
-      },
-    })
-    const { rows, total: t, perPage: per, currentPage: cur } = normalizeResponse(res)
-    contracts.value = rows?.length ? rows : []
-    total.value = t
-    if (per && per !== limit.value) limit.value = per
-    if (cur && cur !== page.value) page.value = cur
-  } catch (e) {
-    contracts.value = []
-    total.value = 0
-  } finally {
-    loading.value = false
-  }
-}
-
 const hasActiveFilter = computed(() => Boolean(search.value) || statusFilter.value !== '')
 
-// Qidiruv/filtr o'zgarsa — 1-sahifaga qaytib qayta yuklaymiz (qo'sh so'rovsiz)
-function resetAndLoad() {
-  if (page.value !== 1) page.value = 1 // page watcher loadContracts ni chaqiradi
-  else loadContracts()
-}
 let searchTimer = null
-watch(search, () => { clearTimeout(searchTimer); searchTimer = setTimeout(resetAndLoad, 400) })
-watch(statusFilter, resetAndLoad)
-watch([page, limit], loadContracts)
-onMounted(loadContracts)
+watch(search, () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => list.reset(), 400) })
+watch(statusFilter, () => list.reset())
+onMounted(() => list.load())
+onBeforeUnmount(() => clearTimeout(searchTimer))
 
-function clearFilters() {
-  search.value = ''
-  statusFilter.value = ''
-}
-
-// Pagination tugmalari
-function nextPage() { if (canNext.value) page.value += 1 }
-function prevPage() { if (canPrev.value) page.value -= 1 }
+function clearFilters() { search.value = ''; statusFilter.value = '' }
 </script>
 
 <template>
@@ -222,14 +119,15 @@ function prevPage() { if (canPrev.value) page.value -= 1 }
     <!-- Qidiruv va filtr paneli -->
     <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
       <div class="relative flex-1">
-        <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-500">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
           </svg>
         </span>
         <input
           v-model="search"
-          type="text"
+          type="search"
+          aria-label="Shartnomalarni qidirish"
           placeholder="Shartnoma raqami, F.I.O yoki ID bo‘yicha qidirish…"
           class="block w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
         />
@@ -237,6 +135,7 @@ function prevPage() { if (canPrev.value) page.value -= 1 }
 
       <select
         v-model="statusFilter"
+        aria-label="Holat bo‘yicha filtr"
         class="min-w-[180px] rounded-xl border border-slate-200 bg-white py-2.5 pl-3 pr-9 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
       >
         <option value="">Barcha holat</option>
@@ -256,15 +155,14 @@ function prevPage() { if (canPrev.value) page.value -= 1 }
       </button>
     </div>
 
-    <DataTable :columns="columns" :rows="rowsForTable" :loading="loading" download-filename="contracts.xlsx"
-      class="datatable-center-head">
+    <DataTable :columns="columns" :rows="rowsForTable" :loading="loading" :error="error" empty-message="Shartnoma topilmadi." class="datatable-center-head" @retry="list.retry()">
       <template #title>
         <h3 class="text-base font-semibold text-slate-800">Barcha shartnomalar soni ({{ total }})</h3>
       </template>
 
       <!-- Qarz shartnomasi raqami → /contracts/:id -->
       <template #cell-contract_no="{ row }">
-        <RouterLink :to="`/contracts/${row.id}`" class="text-primary-600 hover:underline font-medium">
+        <RouterLink :to="`/contracts/${row.id}`" class="text-indigo-700 hover:underline font-medium">
           {{ row.contract_no }}
         </RouterLink>
       </template>
@@ -295,20 +193,7 @@ function prevPage() { if (canPrev.value) page.value -= 1 }
       </template>
     </DataTable>
 
-    <!-- Pagination -->
-    <div class="flex items-center justify-between">
-      <div class="text-sm text-slate-600">
-        Sahifa {{ page }} / {{ Math.max(1, Math.ceil(total / limit)) }}
-      </div>
-      <div class="flex items-center gap-2">
-        <button class="px-3 py-1 rounded border text-sm disabled:opacity-50" :disabled="!canPrev" @click="prevPage">
-          Oldingi
-        </button>
-        <button class="px-3 py-1 rounded border text-sm disabled:opacity-50" :disabled="!canNext" @click="nextPage">
-          Keyingi
-        </button>
-      </div>
-    </div>
+    <PagerBar :page="page" :limit="limit" :total="total" :disabled="loading" @change="list.setPage" />
   </div>
 </template>
 

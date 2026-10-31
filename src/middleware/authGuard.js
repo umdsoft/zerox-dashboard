@@ -1,44 +1,46 @@
 import { useAuthStore } from '../stores/auth';
 
+const DEFAULT_TITLE = 'ZeroX Admin';
+
 export function registerAuthGuard(router) {
-  router.beforeEach(async (to, from, next) => {
+  router.beforeEach(async (to) => {
     const authStore = useAuthStore();
-    const requiresAuth = to.matched.some((record) => record.meta?.requiresAuth);
-    const isPublic = to.matched.some((record) => record.meta?.public);
+    const requiresAuth = to.matched.some((r) => r.meta?.requiresAuth);
+    const isPublic = to.matched.some((r) => r.meta?.public);
 
     if (requiresAuth) {
       if (!authStore.isAuthenticated) {
-        authStore.logout();
-        return next({ name: 'login', query: { redirect: to.fullPath } });
+        return { name: 'login', query: { redirect: to.fullPath } };
       }
-      try {
-        if (!authStore.user) {
+      if (!authStore.user) {
+        try {
           await authStore.fetchMe();
+        } catch (_) {
+          authStore.clearLocal();
+          return { name: 'login', query: { redirect: to.fullPath } };
         }
-        if (!authStore.isAdmin) {
-          authStore.logout();
-          return next({ name: 'login' });
-        }
-        return next();
-      } catch (error) {
-        authStore.logout();
-        return next({ name: 'login', query: { redirect: to.fullPath } });
       }
+      // Rolga bog'liq sahifalar (masalan Audit, Adminlar — faqat super)
+      const need = to.matched.map((r) => r.meta?.permission).find(Boolean);
+      if (need && !authStore.can(need)) {
+        return { name: 'dashboard' };
+      }
+      return true;
     }
 
     if (isPublic && authStore.isAuthenticated) {
       try {
-        if (!authStore.user) {
-          await authStore.fetchMe();
-        }
-        if (authStore.isAdmin) {
-          return next({ name: 'dashboard' });
-        }
-      } catch (error) {
-        authStore.logout();
+        if (!authStore.user) await authStore.fetchMe();
+        return { name: 'dashboard' };
+      } catch (_) {
+        authStore.clearLocal();
       }
     }
+    return true;
+  });
 
-    return next();
+  router.afterEach((to) => {
+    const t = to.meta?.title;
+    document.title = t ? `${t} — ${DEFAULT_TITLE}` : DEFAULT_TITLE;
   });
 }

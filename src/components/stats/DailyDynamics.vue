@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import api from '../../lib/axios'
+import { fmtNum } from '../../lib/format'
 import { bestWorst, dayDelta, fmtDayLabel, pctChange } from './dailyDynamics'
 
 const DAY_OPTIONS = [7, 14, 30]
@@ -13,8 +14,7 @@ const payload = ref(null)
 let seq = 0 // eskirgan javoblardan himoya
 let aborter = null
 
-const nf = new Intl.NumberFormat('ru-RU')
-const fmt = (v) => nf.format(Number(v || 0))
+const fmt = fmtNum
 
 async function load() {
   const my = ++seq
@@ -97,7 +97,7 @@ const summary = computed(() => bestWorst(payload.value?.totals, payload.value?.p
 const fmtPct = (p) => `${p > 0 ? '+' : ''}${String(p).replace('.', ',')}%`
 const deltaText = (d) => (d.dir === 'up' ? `▲ +${fmt(d.diff)}` : d.dir === 'down' ? `▼ −${fmt(Math.abs(d.diff))}` : '=')
 const deltaClass = (d) => (d.dir === 'up' ? 'bg-emerald-50 text-emerald-700' : d.dir === 'down' ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-500')
-const pctClass = (p) => (p === null ? 'text-slate-400' : p > 0 ? 'text-emerald-600' : p < 0 ? 'text-rose-600' : 'text-slate-500')
+const pctClass = (p) => (p === null ? 'text-slate-500' : p > 0 ? 'text-emerald-600' : p < 0 ? 'text-rose-600' : 'text-slate-500')
 </script>
 
 <template>
@@ -136,7 +136,7 @@ const pctClass = (p) => (p === null ? 'text-slate-400' : p > 0 ? 'text-emerald-6
             <th class="px-4 py-3 whitespace-nowrap">Kun</th>
             <th v-for="c in COLUMNS" :key="c.key" class="px-4 py-3 text-right whitespace-nowrap">
               {{ c.title }}
-              <div v-if="c.sub" class="text-[10px] font-normal text-slate-400">{{ c.sub }}</div>
+              <div v-if="c.sub" class="text-[10px] font-normal text-slate-500">{{ c.sub }}</div>
             </th>
           </tr>
         </thead>
@@ -150,12 +150,12 @@ const pctClass = (p) => (p === null ? 'text-slate-400' : p > 0 ? 'text-emerald-6
         <tbody v-else class="divide-y divide-slate-100" :class="loading ? 'opacity-60' : ''">
           <tr v-for="r in rows" :key="r.key" class="hover:bg-slate-50/60">
             <td class="px-4 py-3 whitespace-nowrap font-semibold text-slate-700">
-              {{ r.label }} <span class="text-xs font-medium text-slate-400">{{ r.weekday }}</span>
+              {{ r.label }} <span class="text-xs font-medium text-slate-500">{{ r.weekday }}</span>
               <span v-if="r.partial" class="ml-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700" title="Bugungi kun hali tugamagan — jami va foizlarga kirmaydi">bugun*</span>
             </td>
             <td v-for="c in r.cells" :key="c.key" class="px-4 py-3 text-right whitespace-nowrap tabular-nums text-slate-800">
               <span class="font-semibold">{{ fmt(c.main) }}</span>
-              <span v-if="c.second !== null" class="text-slate-400"> / {{ fmt(c.second) }}</span>
+              <span v-if="c.second !== null" class="text-slate-500"> / {{ fmt(c.second) }}</span>
               <span v-if="c.delta" class="ml-2 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold" :class="deltaClass(c.delta)">{{ deltaText(c.delta) }}</span>
             </td>
           </tr>
@@ -165,7 +165,7 @@ const pctClass = (p) => (p === null ? 'text-slate-400' : p > 0 ? 'text-emerald-6
             <td class="px-4 py-3 whitespace-nowrap text-xs font-bold">Jami ({{ windowDays }} to‘liq kun, bugunsiz)</td>
             <td v-for="c in totalCells" :key="c.key" class="px-4 py-3 text-right whitespace-nowrap tabular-nums">
               <span class="font-bold">{{ fmt(c.main) }}</span>
-              <span v-if="c.second !== null" class="text-slate-400"> / {{ fmt(c.second) }}</span>
+              <span v-if="c.second !== null" class="text-slate-500"> / {{ fmt(c.second) }}</span>
             </td>
           </tr>
           <tr>
@@ -176,7 +176,7 @@ const pctClass = (p) => (p === null ? 'text-slate-400' : p > 0 ? 'text-emerald-6
           </tr>
         </tfoot>
       </table>
-      <p class="px-5 py-3 text-[11px] text-slate-400">
+      <p class="px-5 py-3 text-[11px] text-slate-500">
         * Bugun hali tugamagan: kunlik o‘zgarish chipi, “Jami” va foizlarga kirmaydi. “Faol userlar” jami qatorida kunlik noyob userlar yig‘indisi (user-kun).
       </p>
     </div>

@@ -3,35 +3,27 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../../lib/axios'
 import DailyDynamics from '../../components/stats/DailyDynamics.vue'
+import { fmtDate, fmtNum, fmtCompact } from '../../lib/format'
 
 const router = useRouter()
 
-// Sana formati: "2026-06-22T..." -> "22.06.2026" (noaniq bo'lsa "—")
-function fmtDate(v) {
-  if (!v) return '—'
-  const d = new Date(v)
-  if (isNaN(d.getTime())) return '—'
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  return `${dd}.${mm}.${d.getFullYear()}`
-}
-
-// Do'kon detail sahifasiga o'tish (do'konlar ro'yxatidagi qator bosilganda)
-function goStore(id) {
-  if (id != null) router.push({ name: 'stores-detail', params: { id } })
-}
+const fmtD = (v) => fmtDate(v, { empty: '—' })
 
 // Mobil hisob qoldig'i (jami tushum EMAS — real qoldiq). Ustiga bosganda ro'yxat.
 const mobileBalanceTotal = ref(null)
 const mobileBalanceUsers = ref(null)
-function fmtMoneyFull(v) { return new Intl.NumberFormat('uz-UZ').format(Number(v || 0)) }
+const fmtMoneyFull = fmtNum
+const mobileBalanceError = ref('')
 async function loadMobileBalance() {
   try {
     const { data } = await api.get('/dashboard/stats/mobile-balance')
     const d = data?.data || data || {}
     mobileBalanceTotal.value = Number(d.total_balance || 0)
     mobileBalanceUsers.value = Number(d.users_count || 0)
-  } catch (_) { /* non-fatal */ }
+    mobileBalanceError.value = ''
+  } catch (_) {
+    mobileBalanceError.value = 'Qoldiqni yuklab bo‘lmadi'
+  }
 }
 onMounted(loadMobileBalance)
 
@@ -48,21 +40,10 @@ const overviewStats = ref({
   revenueTotal: 0,
   revenueThisMonth: 0,
 })
-const nf = new Intl.NumberFormat('ru-RU')
-const fmtN = (v) => nf.format(v ?? 0)
-const fmtC = (v) => `${fmtN(v)} UZS`
+const fmtN = (v) => fmtNum(v ?? 0)
 
-// Pulni qisqartirilgan ko'rinishda — ming / mln / mlrd (masalan: 164,6 ming, 10 mln, 2,5 mlrd UZS).
-// 1000 dan kichik bo'lsa to'liq son ko'rsatiladi.
-function fmtMoneyCompact(v) {
-  const n = Number(v ?? 0)
-  const abs = Math.abs(n)
-  const oneDec = (x) => (Math.round(x * 10) / 10).toString().replace('.', ',')
-  if (abs >= 1e9) return `${oneDec(n / 1e9)} mlrd UZS`
-  if (abs >= 1e6) return `${oneDec(n / 1e6)} mln UZS`
-  if (abs >= 1e3) return `${oneDec(n / 1e3)} ming UZS`
-  return `${fmtN(n)} UZS`
-}
+// Pulni qisqartirilgan ko'rinishda — ming / mln / mlrd (masalan: 164,6 ming UZS)
+const fmtMoneyCompact = (v) => `${fmtCompact(v)} UZS`
 
 const topStats = computed(() => ([
   {
@@ -229,7 +210,7 @@ async function loadData(){
     // Do'kon kesimi (do'konlar ro'yxati)
     qdStores.value = Array.isArray(s.qarzDaftariByStore) ? s.qarzDaftariByStore : []
   }catch(e){
-    pieError.value='Maʼlumotlarni yuklashda xatolik yuz berdi.'
+    pieError.value='Ma’lumotlarni yuklashda xatolik yuz berdi.'
     regionRaw.value=ageRaw.value=genderRaw.value={labels:[],values:[]}
   }finally{
     pieLoading.value=false
@@ -243,24 +224,26 @@ onMounted(loadData)
   <div class="space-y-6">
     <!-- 4 top stats — har biri: asosiy son + "bu oyda" sub-qiymat -->
     <div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-      <div
+      <component
+        :is="s.key === 'revenue_total' ? 'button' : 'div'"
         v-for="s in topStats"
         :key="s.key"
-        class="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition"
-        :class="s.key === 'revenue_total' ? 'cursor-pointer hover:border-amber-300 hover:shadow-md' : ''"
+        :type="s.key === 'revenue_total' ? 'button' : undefined"
+        class="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition"
+        :class="s.key === 'revenue_total' ? 'cursor-pointer hover:border-amber-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500' : ''"
+        :title="s.key === 'revenue_total' ? 'Kimlar hissa qo‘shganini ko‘rish' : undefined"
         @click="s.key === 'revenue_total' && router.push({ name: 'stats-revenue' })"
-        :title="s.key === 'revenue_total' ? 'Kimlar hissa qo‘shganini ko‘rish' : ''"
       >
         <div :class="['h-10 w-10 rounded-xl flex items-center justify-center shrink-0', s.tint]">
           <fa :icon="s.icon" />
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-[11px] tracking-wide text-slate-400 font-semibold">{{ s.label }}</div>
+          <div class="text-[11px] tracking-wide text-slate-500 font-semibold">{{ s.label }}</div>
           <div class="mt-1 text-2xl font-bold text-slate-800 truncate">{{ s.value }}</div>
           <div class="mt-1 text-xs font-medium text-slate-500 truncate">{{ s.sub }}</div>
           <div v-if="s.key === 'revenue_total'" class="mt-1 text-[11px] font-semibold text-amber-600">Ro‘yxatni ko‘rish →</div>
         </div>
-      </div>
+      </component>
     </div>
 
     <!-- 28.10: kunlik dinamika (oxirgi 7/14/30 kun) -->
@@ -269,19 +252,20 @@ onMounted(loadData)
     <!-- Mobil hisob qoldig'i — "Jami tushum"дан farqli (u SMS-paketga sarflanishi mumkin).
          Ustiga bosganda qoldig'i bor foydalanuvchilar ro'yxati ochiladi. -->
     <button
+      type="button"
       @click="router.push({ name: 'stats-mobile-balance' })"
-      class="w-full flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 text-left transition hover:bg-emerald-50 hover:border-emerald-300"
+      class="w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 text-left transition hover:bg-emerald-50 hover:border-emerald-300"
     >
       <div class="flex items-center gap-4 min-w-0">
         <div class="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
           <fa icon="wallet" />
         </div>
         <div class="min-w-0">
-          <div class="text-[11px] tracking-wide text-emerald-700/70 font-semibold">Mobil hisob qoldig‘i (real qoldiq)</div>
+          <div class="text-[11px] tracking-wide text-emerald-800 font-semibold">Mobil hisob qoldig‘i (real qoldiq)</div>
           <div class="mt-0.5 text-2xl font-bold text-emerald-700 truncate">
-            {{ mobileBalanceTotal === null ? '…' : fmtMoneyFull(mobileBalanceTotal) }} <span class="text-base text-emerald-600/70">so‘m</span>
+            {{ mobileBalanceTotal === null ? (mobileBalanceError ? '—' : '…') : fmtMoneyFull(mobileBalanceTotal) }} <span class="text-base text-emerald-700">so‘m</span>
           </div>
-          <div class="text-xs font-medium text-emerald-700/60">{{ mobileBalanceUsers === null ? '' : `${fmtN(mobileBalanceUsers)} foydalanuvchida qoldiq bor` }}</div>
+          <div class="text-xs font-medium text-emerald-800">{{ mobileBalanceError || (mobileBalanceUsers === null ? '' : `${fmtN(mobileBalanceUsers)} foydalanuvchida qoldiq bor`) }}</div>
         </div>
       </div>
       <span class="text-sm font-semibold text-emerald-700 shrink-0">Ro‘yxatni ko‘rish →</span>
@@ -298,8 +282,8 @@ onMounted(loadData)
         <div class="mt-4 rounded-2xl border border-slate-100 bg-white/70 p-4">
           <h4 class="text-sm font-semibold text-slate-700">Maʼlumotlar</h4>
 
-          <div v-if="pieLoading" class="mt-3 text-sm text-slate-400">Yuklanmoqda…</div>
-          <div v-else-if="pieError" class="mt-3 text-sm text-rose-500">{{ pieError }}</div>
+          <div v-if="pieLoading" class="mt-3 text-sm text-slate-500">Yuklanmoqda…</div>
+          <div v-else-if="pieError" class="mt-3 text-sm text-rose-600" role="alert">{{ pieError }} <button type="button" class="ml-2 underline" @click="loadData">Qayta urinish</button></div>
 
           <ul v-else-if="sec.entries.length" class="mt-3 divide-y divide-slate-100 text-sm">
             <li v-for="e in sec.entries" :key="e.label" class="flex items-center justify-between gap-3 py-1.5">
@@ -311,7 +295,7 @@ onMounted(loadData)
             </li>
           </ul>
 
-          <div v-else class="mt-3 text-sm text-slate-400">Maʼlumot mavjud emas</div>
+          <div v-else class="mt-3 text-sm text-slate-500">Ma’lumot mavjud emas</div>
         </div>
       </div>
     </div>
@@ -322,7 +306,7 @@ onMounted(loadData)
         <h3 class="text-base font-semibold text-slate-800">Qarz daftari (umumiy)</h3>
       </div>
 
-      <div v-if="pieLoading" class="mt-4 text-sm text-slate-400">Yuklanmoqda…</div>
+      <div v-if="pieLoading" class="mt-4 text-sm text-slate-500">Yuklanmoqda…</div>
       <!-- UZS va USD tepa-past (vertikal) — ma'lumotlar chalg'itmasligi uchun -->
       <div v-else class="mt-4 space-y-4">
         <div v-for="c in qdCards" :key="c.cur" class="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
@@ -359,8 +343,8 @@ onMounted(loadData)
         <span class="text-xs font-semibold text-slate-500">{{ fmtN(qdStores.length) }} ta do'kon</span>
       </div>
 
-      <div v-if="pieLoading" class="mt-4 text-sm text-slate-400">Yuklanmoqda…</div>
-      <div v-else-if="!qdStores.length" class="mt-4 text-sm text-slate-400">Do'kon qarzlari topilmadi</div>
+      <div v-if="pieLoading" class="mt-4 text-sm text-slate-500">Yuklanmoqda…</div>
+      <div v-else-if="!qdStores.length" class="mt-4 text-sm text-slate-500">Do‘kon qarzlari topilmadi</div>
       <div v-else class="mt-4 overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead>
@@ -379,36 +363,35 @@ onMounted(loadData)
             <tr
               v-for="st in qdStores"
               :key="st.faoliyat_id"
-              class="cursor-pointer hover:bg-slate-50/60"
-              @click="goStore(st.faoliyat_id)"
+              class="hover:bg-slate-50/60"
             >
               <td class="px-3 py-2.5">
-                <div class="flex items-center gap-1.5 font-medium text-slate-800">
+                <RouterLink :to="{ name: 'stores-detail', params: { id: st.faoliyat_id } }" class="flex items-center gap-1.5 font-medium text-indigo-700 hover:underline">
                   {{ st.nomi }}
-                  <fa icon="chevron-right" class="text-[10px] text-slate-300" />
-                </div>
+                  <fa icon="chevron-right" class="text-[10px] text-slate-500" />
+                </RouterLink>
               </td>
               <td class="px-3 py-2.5 text-slate-600">
                 <span v-if="st.manzil">{{ st.manzil }}</span>
-                <span v-else class="text-slate-300">—</span>
+                <span v-else class="text-slate-500">—</span>
               </td>
-              <td class="px-3 py-2.5 text-slate-600 tabular-nums">{{ fmtDate(st.royxat_sana) }}</td>
+              <td class="px-3 py-2.5 text-slate-600 tabular-nums">{{ fmtD(st.royxat_sana) }}</td>
               <td class="px-3 py-2.5 text-center font-semibold text-slate-700 tabular-nums">{{ fmtN(st.soni) }}</td>
               <td class="px-3 py-2.5 text-center text-slate-600 tabular-nums">{{ fmtN(st.sms_soni) }}</td>
               <td class="px-3 py-2.5 text-center text-slate-600 tabular-nums">{{ fmtN(st.tarif_soni) }}</td>
               <td class="px-3 py-2.5 text-right tabular-nums">
                 <template v-if="st.UZS.soni">
                   <span class="font-semibold text-slate-800">{{ fmtN(st.UZS.jami) }}</span>
-                  <span class="ml-1 text-xs text-slate-400">({{ st.UZS.soni }} ta)</span>
+                  <span class="ml-1 text-xs text-slate-500">({{ st.UZS.soni }} ta)</span>
                 </template>
-                <span v-else class="text-slate-300">—</span>
+                <span v-else class="text-slate-500">—</span>
               </td>
               <td class="px-3 py-2.5 text-right tabular-nums">
                 <template v-if="st.USD.soni">
                   <span class="font-semibold text-slate-800">{{ fmtN(st.USD.jami) }}</span>
-                  <span class="ml-1 text-xs text-slate-400">({{ st.USD.soni }} ta)</span>
+                  <span class="ml-1 text-xs text-slate-500">({{ st.USD.soni }} ta)</span>
                 </template>
-                <span v-else class="text-slate-300">—</span>
+                <span v-else class="text-slate-500">—</span>
               </td>
             </tr>
           </tbody>

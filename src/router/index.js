@@ -1,175 +1,59 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { registerAuthGuard } from '../middleware/authGuard';
-import DashboardLayout from '../layouts/DashboardLayout.vue';
-import LoginPage from '../pages/Auth/Login.vue';
-import DashboardPage from '../pages/Dashboard/Index.vue';
-import UsersPage from '../pages/Users/Index.vue';
-import PaymentsPage from '../pages/Payments/Index.vue';
-import ContractsPage from '../pages/Contracts/Index.vue';
-import ContractDetailPage from '../pages/Contracts/Detail.vue';
-import UserDetailPage from '../pages/Users/Detail.vue';
-import UserContracts from '../pages/Users/Contracts.vue'
-import CreditorHistory from '../pages/Users/contracts/creditor.vue'
-import DebitoHistory from '../pages/Users/contracts/debitor.vue';
-import CreditorHistoryR from '../pages/Users/contracts/creditor-history.vue'
-import DebitorHistoryR from '../pages/Users/contracts/debitor-history.vue'
-import ExCreditor from '../pages/Users/contracts/ex-creditor.vue'
-import ExDebitor from '../pages/Users/contracts/ex-debitor.vue'
-import UserLogins from '../pages/Users/LoginArchive.vue'
-import StoreDetailPage from '../pages/Stores/Detail.vue'
+import { registerAuthFailure } from '../stores/auth';
+
+// Barcha sahifalar lazy (dynamic import) — asosiy chunk kichik qoladi.
+// meta.title — brauzer sarlavhasi va yuqori sarlavha; meta.permission — rol cheklovi (stores/auth.js PERMISSIONS).
+const auth = { requiresAuth: true };
+const r = (path, name, loader, title, extra = {}) => ({
+  path, name, component: loader, meta: { ...auth, title, ...extra },
+});
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
       path: '/auth/login',
       name: 'login',
-      component: LoginPage,
-      meta: { public: true }
+      component: () => import('../pages/Auth/Login.vue'),
+      meta: { public: true, title: 'Kirish' },
     },
     {
       path: '/',
-      component: DashboardLayout,
-      meta: { requiresAuth: true },
+      component: () => import('../layouts/DashboardLayout.vue'),
+      meta: auth,
       children: [
-        {
-          path: '',
-          name: 'dashboard',
-          component: DashboardPage,
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'users',
-          name: 'users',
-          component: UsersPage,
-          meta: { requiresAuth: true }
-        },
-         {
-          path: 'users/:id',
-          name: 'users-detail',
-          component: UserDetailPage,
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'users/:id/contracts',
-          name: 'users-detail-contracts',
-          component: UserContracts,
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'users/:id/creditor/history',
-          name: 'users-creditor-history',
-          component: CreditorHistoryR,
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'users/:id/debitor/history',
-          name: 'users-debitor-history',
-          component: DebitorHistoryR,
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'users/:id/reports/creditor',
-          name: 'users-creditor-report',
-          component: CreditorHistory,
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'users/:id/reports/debitor',
-          name: 'users-debitor-report',
-          component: DebitoHistory,
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'users/:id/reports/ex-creditor',
-          name: 'users-ex-creditor-report',
-          component: ExCreditor,
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'users/:id/reports/ex-debitor',
-          name: 'users-ex-debitor-report',
-          component: ExDebitor,
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'users/:id/logins',
-          name: 'users-logins',
-          component: UserLogins,
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'payments',
-          name: 'payments',
-          component: PaymentsPage,
-          meta: { requiresAuth: true }
-        },
-         {
-          path: 'mobile-version',
-          name: 'mobile-version',
-          component: () => import('../pages/Mobile/index.vue'),
-          meta: { requiresAuth: true }
-        },
-        {
-          // 10.10: hammaga xabar (Telegram bot + ilova push)
-          path: 'broadcast',
-          name: 'broadcast',
-          component: () => import('../pages/Broadcast/Index.vue'),
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'contracts',
-          name: 'contracts',
-          component: ContractsPage,
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'contracts/:id',
-          name: 'contracts-detail',
-          component: ContractDetailPage,
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'stores/:id',
-          name: 'stores-detail',
-          component: StoreDetailPage,
-          meta: { requiresAuth: true }
-        },
-        // Admin STATS (2026-09-12) — Shaxsiy qarz + Shaxsiy moliya (faqat statistika)
-        {
-          path: 'stats/personal-debt',
-          name: 'stats-personal-debt',
-          component: () => import('../pages/Stats/PersonalDebt.vue'),
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'stats/personal-finance',
-          name: 'stats-personal-finance',
-          component: () => import('../pages/Stats/PersonalFinance.vue'),
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'stats/qarz-daftari',
-          name: 'stats-qarz-daftari',
-          component: () => import('../pages/Stats/QarzDaftari.vue'),
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'stats/mobile-balance',
-          name: 'stats-mobile-balance',
-          component: () => import('../pages/Stats/MobileBalance.vue'),
-          meta: { requiresAuth: true }
-        },
-        {
-          path: 'stats/revenue',
-          name: 'stats-revenue',
-          component: () => import('../pages/Stats/Revenue.vue'),
-          meta: { requiresAuth: true }
-        }
-      ]
-    }
-  ]
+        r('', 'dashboard', () => import('../pages/Dashboard/Index.vue'), 'Boshqaruv paneli'),
+        r('users', 'users', () => import('../pages/Users/Index.vue'), 'Foydalanuvchilar'),
+        r('users/:id', 'users-detail', () => import('../pages/Users/Detail.vue'), 'Foydalanuvchi tafsiloti'),
+        r('users/:id/contracts', 'users-detail-contracts', () => import('../pages/Users/Contracts.vue'), 'Foydalanuvchi shartnomalari'),
+        r('users/:id/creditor/history', 'users-creditor-history', () => import('../pages/Users/contracts/creditor-history.vue'), 'Kreditor shartnomalari tarixi'),
+        r('users/:id/debitor/history', 'users-debitor-history', () => import('../pages/Users/contracts/debitor-history.vue'), 'Debitor shartnomalari tarixi'),
+        r('users/:id/reports/creditor', 'users-creditor-report', () => import('../pages/Users/contracts/creditor.vue'), 'Kreditor hisoboti'),
+        r('users/:id/reports/debitor', 'users-debitor-report', () => import('../pages/Users/contracts/debitor.vue'), 'Debitor hisoboti'),
+        r('users/:id/reports/ex-creditor', 'users-ex-creditor-report', () => import('../pages/Users/contracts/ex-creditor.vue'), 'Kreditor (arxiv) hisoboti'),
+        r('users/:id/reports/ex-debitor', 'users-ex-debitor-report', () => import('../pages/Users/contracts/ex-debitor.vue'), 'Debitor (arxiv) hisoboti'),
+        r('users/:id/logins', 'users-logins', () => import('../pages/Users/LoginArchive.vue'), 'Kirishlar tarixi', { permission: 'loginArchive' }),
+        r('payments', 'payments', () => import('../pages/Payments/Index.vue'), 'To‘lovlar'),
+        r('mobile-version', 'mobile-version', () => import('../pages/Mobile/index.vue'), 'Mobil versiya'),
+        r('broadcast', 'broadcast', () => import('../pages/Broadcast/Index.vue'), 'Xabar yuborish', { permission: 'broadcast' }),
+        r('contracts', 'contracts', () => import('../pages/Contracts/Index.vue'), 'Qarz shartnomalari'),
+        r('contracts/:id', 'contracts-detail', () => import('../pages/Contracts/Detail.vue'), 'Shartnoma tafsiloti'),
+        r('stores/:id', 'stores-detail', () => import('../pages/Stores/Detail.vue'), 'Do‘kon tafsiloti'),
+        r('stats/personal-debt', 'stats-personal-debt', () => import('../pages/Stats/PersonalDebt.vue'), 'Shaxsiy qarz'),
+        r('stats/personal-finance', 'stats-personal-finance', () => import('../pages/Stats/PersonalFinance.vue'), 'Shaxsiy moliya'),
+        r('stats/qarz-daftari', 'stats-qarz-daftari', () => import('../pages/Stats/QarzDaftari.vue'), 'Qarz daftari'),
+        r('stats/mobile-balance', 'stats-mobile-balance', () => import('../pages/Stats/MobileBalance.vue'), 'Mobil balans'),
+        r('stats/revenue', 'stats-revenue', () => import('../pages/Stats/Revenue.vue'), 'Daromad'),
+        r('audit', 'audit', () => import('../pages/Audit/Index.vue'), 'Audit jurnali', { permission: 'audit' }),
+        r('admins', 'admins', () => import('../pages/Admins/Index.vue'), 'Adminlar', { permission: 'manageAdmins' }),
+        { path: ':pathMatch(.*)*', redirect: { name: 'dashboard' } },
+      ],
+    },
+  ],
 });
 
 registerAuthGuard(router);
+registerAuthFailure(router);
 
 export default router;
