@@ -46,7 +46,7 @@ export const useAuthStore = defineStore('auth', {
       return ROLE_RANK[this.role] >= ROLE_RANK[need];
     },
 
-    // 1-qadam: telefon + parol → { step: 'enroll'|'totp', ... }
+    // 1-qadam: telefon + parol → { step: 'telegram'|'telegram_link', challenge_token, bot_username, ... }
     async loginStep1(payload) {
       this.loading = true;
       try {
@@ -57,25 +57,20 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    // Birinchi enroll: SMS kodi to'g'ri bo'lsa, otpauth_uri + secret beriladi
-    async enrollVerifySms({ enroll_token, sms_code }) {
-      this.loading = true;
-      try {
-        const { data } = await api.post('/admin/auth/enroll/verify-sms', { enroll_token, sms_code: String(sms_code).trim() });
-        return data;
-      } finally {
-        this.loading = false;
-      }
+    // Kodni qayta yuborish / ulanishni tekshirish: { sent:true } yoki { linked:false }
+    async telegramResend(challengeToken) {
+      const { data } = await api.post('/admin/auth/telegram/resend', { challenge_token: challengeToken });
+      return data;
     },
 
-    // 2-qadam: TOTP / zaxira kod → tokenlar + (birinchi marta) recovery_codes
-    async verifyCode({ token, code }) {
+    // 2-qadam: Telegram kodi (6 xonali) yoki zaxira kod → tokenlar + (birinchi marta) recovery_codes
+    async verifyCode({ challengeToken, code }) {
       this.loading = true;
       try {
-        const body = { code: String(code).trim() };
-        // enroll_token yoki challenge_token — qaysi biri ekanini chaqiruvchi aytadi
-        body[token.kind] = token.value;
-        const { data } = await api.post('/admin/auth/totp', body);
+        const { data } = await api.post('/admin/auth/verify', {
+          challenge_token: challengeToken,
+          code: String(code).trim(),
+        });
         const access = data?.token;
         if (!access) throw new Error('Kirish tokeni topilmadi');
         setTokens({ token: access, refreshToken: data.refreshToken || '' });

@@ -10,7 +10,7 @@ const api = axios.create({
 });
 
 // Auth endpointlari 401 ni o'zlari qayta ishlaydi (noto'g'ri parol / kod) — logout va refresh qilinmaydi.
-const isAuthCall = (url = '') => /\/admin\/auth\/(login|totp|refresh)/.test(url);
+const isAuthCall = (url = '') => /\/admin\/auth\/(login|totp|verify|refresh|telegram\/resend|enroll)/.test(url);
 
 let onAuthFailure = () => {};
 export function setAuthFailureHandler(fn) { onAuthFailure = fn; }
