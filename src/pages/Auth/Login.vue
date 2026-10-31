@@ -199,7 +199,7 @@ const inputCls = 'block w-full rounded-xl border border-slate-200 bg-white px-4 
         <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 font-semibold text-white">ZX</div>
         <h1 class="text-2xl font-semibold text-slate-800">{{ title }}</h1>
         <p v-if="step === 'credentials'" class="text-sm text-slate-500">Kirish uchun telefon raqamingiz va parolingizni kiriting.</p>
-        <p v-else-if="step === 'telegram' && channel === 'sms'" class="text-sm text-slate-600">Tasdiqlash kodi telefoningizga SMS orqali yuborildi (Telegram'ga yetkazib bo'lmadi)</p>
+        <p v-else-if="step === 'telegram' && channel === 'sms'" class="text-sm text-slate-600">Tasdiqlash kodi telefoningizga SMS orqali yuborildi</p>
         <p v-else-if="step === 'telegram'" class="text-sm text-slate-600">Tasdiqlash kodi Telegram'dagi «Verification Codes» chatiga yuborildi</p>
       </div>
 
