@@ -45,6 +45,7 @@ const router = createRouter({
         r('stats/qarz-daftari', 'stats-qarz-daftari', () => import('../pages/Stats/QarzDaftari.vue'), 'Qarz daftari'),
         r('stats/mobile-balance', 'stats-mobile-balance', () => import('../pages/Stats/MobileBalance.vue'), 'Mobil balans'),
         r('stats/revenue', 'stats-revenue', () => import('../pages/Stats/Revenue.vue'), 'Daromad'),
+        r('stats/daily/:metric/:date', 'stats-daily', () => import('../pages/Stats/DailyDrill.vue'), 'Kunlik dinamika tafsiloti'),
         r('audit', 'audit', () => import('../pages/Audit/Index.vue'), 'Audit jurnali', { permission: 'audit' }),
         r('admins', 'admins', () => import('../pages/Admins/Index.vue'), 'Adminlar', { permission: 'manageAdmins' }),
         { path: ':pathMatch(.*)*', redirect: { name: 'dashboard' } },

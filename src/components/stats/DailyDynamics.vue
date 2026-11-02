@@ -1,8 +1,11 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { getDailyActivity } from '../../api/stats'
 import { fmtNum } from '../../lib/format'
 import { bestWorst, dayDelta, fmtDayLabel, pctChange } from './dailyDynamics'
+import { drillLocation, isSuperOnlyMetric } from './dailyDrillMeta'
+import { useAuthStore } from '../../stores/auth'
 
 const DAY_OPTIONS = [7, 14, 30]
 const SKELETON_ROWS = 7
@@ -15,6 +18,9 @@ let seq = 0 // eskirgan javoblardan himoya
 let aborter = null
 
 const fmt = fmtNum
+const auth = useAuthStore()
+// 02.11: shaxsiy moliya / shaxsiy qarz drill-down faqat super-admin (backend ham 403 beradi)
+const canDrill = (key) => !isSuperOnlyMetric(key) || auth.can('personalDrill')
 
 async function load() {
   const my = ++seq
@@ -73,6 +79,9 @@ const rows = computed(() => {
         main: c.main(d),
         second: c.second ? c.second(d) : null,
         money: !!c.money,
+        // 02.11: har bir son (0 dan katta) — shu kunni tashkil etgan yozuvlar sahifasiga havola
+        mainLink: canDrill(c.key) ? drillLocation(c.key, 'records', d.date, c.main(d)) : null,
+        secondLink: c.second && canDrill(c.key) ? drillLocation(c.key, 'users', d.date, c.second(d)) : null,
         delta: prev && !partial ? dayDelta(c.main(d), c.main(prev)) : null,
       })),
     }
@@ -154,8 +163,13 @@ const pctClass = (p) => (p === null ? 'text-slate-500' : p > 0 ? 'text-emerald-6
               <span v-if="r.partial" class="ml-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700" title="Bugungi kun hali tugamagan — jami va foizlarga kirmaydi">bugun*</span>
             </td>
             <td v-for="c in r.cells" :key="c.key" class="px-4 py-3 text-right whitespace-nowrap tabular-nums text-slate-800">
-              <span class="font-semibold">{{ fmt(c.main) }}</span>
-              <span v-if="c.second !== null" class="text-slate-500"> / {{ fmt(c.second) }}</span>
+              <RouterLink v-if="c.mainLink" :to="c.mainLink" class="drill-link font-semibold" :title="`${r.label}: yozuvlarni ko‘rish`">{{ fmt(c.main) }}</RouterLink>
+              <span v-else class="font-semibold">{{ fmt(c.main) }}</span>
+              <template v-if="c.second !== null">
+                <span class="text-slate-500"> / </span>
+                <RouterLink v-if="c.secondLink" :to="c.secondLink" class="drill-link text-slate-600" :title="`${r.label}: faol userlarni ko‘rish`">{{ fmt(c.second) }}</RouterLink>
+                <span v-else class="text-slate-500">{{ fmt(c.second) }}</span>
+              </template>
               <span v-if="c.delta" class="ml-2 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold" :class="deltaClass(c.delta)">{{ deltaText(c.delta) }}</span>
             </td>
           </tr>
@@ -182,3 +196,24 @@ const pctClass = (p) => (p === null ? 'text-slate-500' : p > 0 ? 'text-emerald-6
     </div>
   </div>
 </template>
+
+<style scoped>
+.drill-link {
+  cursor: pointer;
+  border-radius: 0.25rem;
+  padding: 0 0.125rem;
+  color: #4338ca;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+  transition: background-color 0.15s, text-decoration-color 0.15s;
+}
+.drill-link:hover {
+  background-color: #eef2ff;
+  text-decoration-color: currentColor;
+}
+.drill-link:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 1px;
+}
+</style>

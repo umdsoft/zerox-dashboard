@@ -18,6 +18,7 @@ const PERMISSIONS = {
   export: 'super',
   manageAdmins: 'super',
   audit: 'super',
+  personalDrill: 'super', // kunlik dinamika: shaxsiy moliya/qarz yozuvlari (backend: 403)
   loginArchive: 'operator', // IP/qurilma tarixi (backend: viewer uchun 403)
 };
 
