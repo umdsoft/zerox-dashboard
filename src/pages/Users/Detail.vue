@@ -5,6 +5,8 @@ import { assetUrl, pdfUrl, openSignedPdf } from '../../lib/config'
 import { fmtDate, fmtUZS, errMessage } from '../../lib/format'
 import { useUser } from '../../composables/useUser'
 import { revealUserField } from '../../api/users'
+// ZX-2.1: openOferta() `api` ni ishlatardi, lekin import yo'q edi (ReferenceError — oferta tugmasi ishlamasdi)
+import api from '../../lib/axios'
 import { useAuthStore } from '../../stores/auth'
 import { toastOk, toastErr } from '../../lib/toast'
 import ReasonDialog from '../../components/ui/ReasonDialog.vue'

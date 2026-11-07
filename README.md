@@ -24,5 +24,5 @@ The dashboard includes:
 - Global Axios interceptors that automatically append bearer tokens and handle 401 responses.
 - Route guards that enforce admin-only access to protected views.
 - Minimalist Tailwind-based layout with sidebar navigation and topbar actions.
-- Reusable `AppButton`, `AppCard`, and `DataTable` components with built-in Excel export via SheetJS.
+- Reusable `AppButton` and `DataTable` components with built-in Excel export via SheetJS.
 - Placeholder API integration with graceful fallbacks to sample data for rapid prototyping.

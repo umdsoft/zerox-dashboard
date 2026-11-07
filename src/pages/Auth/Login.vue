@@ -51,6 +51,10 @@ function humanError(error) {
     'telegram-unavailable': 'Bu raqamda Telegram topilmadi. Zaxira kod bilan kiring yoki administratorga murojaat qiling',
     'telegram-not-configured': 'Telegram bot sozlanmagan, administratorga murojaat qiling',
     'telegram-failed': 'Telegramga yuborib bo‘lmadi, qayta urinib ko‘ring',
+    // ZX-2.1: backend (adminTelegramMethod / AdminAuth) qaytaradigan qolgan kodlar
+    'sms-failed': 'Kodni SMS orqali yuborib bo‘lmadi. Zaxira kod bilan kiring yoki keyinroq urinib ko‘ring',
+    'totp-not-configured': 'Ikki bosqichli tasdiqlash serverda sozlanmagan, administratorga murojaat qiling',
+    'unexpected-step': 'Serverdagi tasdiqlash usuli bu panel versiyasida qo‘llab-quvvatlanmaydi, administratorga murojaat qiling',
     'challenge-expired': 'Sessiya muddati tugadi yoki urinishlar tugadi. Parolni qaytadan kiriting.',
     'invalid-credentials': 'Telefon raqam yoki parol noto‘g‘ri.',
     'invalid-code': 'Kod noto‘g‘ri yoki muddati o‘tgan.',
@@ -58,6 +62,7 @@ function humanError(error) {
     'invalid-token': 'Sessiya muddati tugadi. Qaytadan kiring.',
   }
   if (map[code]) return map[code]
+  if (map[error?.message]) return map[error.message]
   if (!error?.response) return 'Tarmoq xatosi: server bilan aloqa yo‘q.'
   return 'Kirishda xatolik. Keyinroq urinib ko‘ring.'
 }
@@ -120,9 +125,12 @@ async function submitCredentials() {
 }
 
 // Raqamda Telegram yo'q: kod yuborib bo'lmaydi — zaxira kod kiritishga o'tamiz
+// ZX-2.1: backend ikkala kanal (Telegram + SMS) ishlamaganda ham 'telegram-failed' (502) bilan
+// recovery-only challenge_token qaytaradi — shu holatda ham zaxira kodga o'tamiz.
 function useRecoveryIfUnavailable(error) {
-  if (error?.response?.data?.code !== 'telegram-unavailable') return
-  const tok = error.response.data.challenge_token
+  const data = error?.response?.data
+  if (data?.code !== 'telegram-unavailable' && !(data?.code === 'telegram-failed' && data?.challenge_token)) return
+  const tok = data.challenge_token
   if (tok) challengeToken.value = tok
   if (!challengeToken.value) return // token bo'lmasa faqat xabar ko'rsatiladi
   const msg = errorMessage.value
@@ -177,7 +185,7 @@ async function submitCode() {
 
 async function finish() {
   recoveryCodes.value = [] // xotiradan o'chiramiz — qayta ko'rsatilmaydi
-  const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/') ? route.query.redirect : null
+  const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/') && !route.query.redirect.startsWith('//') ? route.query.redirect : null // ZX-2.1: '//host' rad etiladi
   await router.replace(redirect || { name: 'dashboard' })
 }
 
